@@ -25,6 +25,7 @@ logs/
 .vscode/
 *.swp
 *.swo
+.gigacoge/
 
 # OS
 .DS_Store

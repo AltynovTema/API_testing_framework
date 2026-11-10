@@ -3,7 +3,12 @@ import os
 
 import pytest
 import requests
+from dotenv import load_dotenv  # <-- ДОБАВИТЬ ЭТОТ ИМПОРТ
 
+# Загружаем переменные из .env в окружение в самом начале
+load_dotenv()
+
+# Импортируем нужные модули
 from clients.api_manager import ApiManager
 from utils.data_generator import DataGenerator
 
@@ -11,6 +16,9 @@ from utils.logger import setup_logger
 
 # Глобальная настройка логгера при загрузке conftest.py
 setup_logger("custom_requester.custom_requester")
+
+# Экземпляр генератора данных (общий для всех тестов)
+data_generator = DataGenerator()
 
 # Pytest Fixtures
 @pytest.fixture(scope="function")
@@ -37,10 +45,10 @@ def user_generator() -> dict:
 
     scope="function" — данные пересоздаются для каждого тестового метода.
     """
-    password = DataGenerator.generate_password()
+    password = data_generator.generate_password()
     return {
-        "email": DataGenerator.generate_email(),
-        "fullName": DataGenerator.generate_full_name(),
+        "email": data_generator.generate_email(),
+        "fullName": data_generator.generate_full_name(),
         "password": password,
         "passwordRepeat": password,
         "roles": ["USER"],
@@ -120,7 +128,7 @@ def created_genre(superadmin_api_manager: ApiManager):
     Использует права SUPER_ADMIN
     """
     # Получаем уникальное имя для жанра
-    genre_name = DataGenerator.generate_genre_name()
+    genre_name = data_generator.generate_genre_name()
 
     # Создаем новый жанр
     genre_data = superadmin_api_manager.genres_api.create_genre(genre_name).json()
@@ -128,6 +136,6 @@ def created_genre(superadmin_api_manager: ApiManager):
     yield genre_data
 
     # Teardown: удаляем жанр
-    superadmin_api_manager.genres_api.delete_genre(genre_data[id])
+    superadmin_api_manager.genres_api.delete_genre(genre_data["id"])
 
 

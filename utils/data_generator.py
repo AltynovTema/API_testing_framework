@@ -44,7 +44,7 @@ class DataGenerator:
             "genreId": None # Подставляется в фикстуре
         }
 
-    def generate_movie_genre(self) -> dict:
+    def generate_genre_name(self) -> dict:
         """Генерируем уникальное имя для жанра"""
         return {"name": self.fake.unique.word()}
 

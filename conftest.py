@@ -1,6 +1,5 @@
-"""
-Конфигурация pytest-фреймворка.
-"""
+# Конфигурация pytest-фреймворка.
+import os
 
 import pytest
 import requests
@@ -13,10 +12,7 @@ from utils.logger import setup_logger
 # Глобальная настройка логгера при загрузке conftest.py
 setup_logger("custom_requester.custom_requester")
 
-# =============================================================================
 # Pytest Fixtures
-# =============================================================================
-
 @pytest.fixture(scope="function")
 def http_session() -> requests.Session:
     """
@@ -29,12 +25,10 @@ def http_session() -> requests.Session:
     yield session
     session.close()
 
-
 @pytest.fixture(scope="function")
 def api_manager(http_session: requests.Session) -> ApiManager:
     """Предоставляет готовый ApiManager с инициализированной сессией."""
     return ApiManager(http_session)
-
 
 @pytest.fixture(scope="function")
 def user_generator() -> dict:
@@ -51,7 +45,6 @@ def user_generator() -> dict:
         "passwordRepeat": password,
         "roles": ["USER"],
     }
-
 
 @pytest.fixture(scope="function")
 def registered_user(
@@ -89,3 +82,52 @@ def unauthenticated_api_manager(registered_user):
         yield ApiManager(session)
     finally:
         session.close()
+
+@pytest.fixture(scope="function")
+def super_admin_http_session() -> requests.Session:
+    """
+    Создаёт объект requests.Session() для SUPER_ADMIN.
+
+    Сессия позволяет сохранять cookies и заголовки между запросами.
+    Создает отдельную сессию для SUPER_ADMIN, чтобы не смешивать токены.
+    """
+    session = requests.Session()
+    yield session
+    session.close()
+
+@pytest.fixture(scope="function")
+def superadmin_api_manager(super_admin_http_session: requests.Session) -> ApiManager:
+    """
+    Предоставляет ApiManager с правами SUPER_ADMIN.
+    Использует отдельную сессию super_admin_http_session.
+    """
+    admin_api_manager = ApiManager(super_admin_http_session)
+
+    # Берем креды из .env
+    username = os.getenv("SUPER_ADMIN_USERNAME")
+    password = os.getenv("SUPER_ADMIN_PASSWORD")
+    assert username and password, "Не найдены креды SUPER_ADMIN в .env"
+
+    # Авторизуемся
+    admin_api_manager.auth_api.authenticate((username, password))
+
+    return admin_api_manager
+
+@pytest.fixture(scope="function")
+def created_genre(superadmin_api_manager: ApiManager):
+    """
+    Создает новый жанр и удаляет его после теста.
+    Использует права SUPER_ADMIN
+    """
+    # Получаем уникальное имя для жанра
+    genre_name = DataGenerator.generate_genre_name()
+
+    # Создаем новый жанр
+    genre_data = superadmin_api_manager.genres_api.create_genre(genre_name).json()
+
+    yield genre_data
+
+    # Teardown: удаляем жанр
+    superadmin_api_manager.genres_api.delete_genre(genre_data[id])
+
+

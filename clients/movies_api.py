@@ -110,7 +110,7 @@ class GenresAPI(CustomRequester):
         """
         return self.send_request(
             method="POST",
-            endpoint=MOVIES,
+            endpoint=GENRES,
             data=genre_data,
             expected_status=expected_status,
             **kwargs

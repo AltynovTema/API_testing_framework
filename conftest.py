@@ -80,7 +80,7 @@ def authenticated_user(
     return registered_user
 
 @pytest.fixture(scope="session")
-def unauthenticated_api_manager(registered_user):
+def unauthenticated_api_manager():
     """
     Предоставляет ApiManager без авторизации (чистая сессия).
     Не зависит от зарегистрированных пользователей.
@@ -91,7 +91,7 @@ def unauthenticated_api_manager(registered_user):
     finally:
         session.close()
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def super_admin_http_session() -> requests.Session:
     """
     Создаёт объект requests.Session() для SUPER_ADMIN.
@@ -103,7 +103,7 @@ def super_admin_http_session() -> requests.Session:
     yield session
     session.close()
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def superadmin_api_manager(super_admin_http_session: requests.Session) -> ApiManager:
     """
     Предоставляет ApiManager с правами SUPER_ADMIN.
@@ -121,21 +121,43 @@ def superadmin_api_manager(super_admin_http_session: requests.Session) -> ApiMan
 
     return admin_api_manager
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def created_genre(superadmin_api_manager: ApiManager):
     """
-    Создает новый жанр и удаляет его после теста.
-    Использует права SUPER_ADMIN
+    Создаёт жанр один раз на весь прогон и удаляет после всех тестов.
     """
-    # Получаем уникальное имя для жанра
     genre_name = data_generator.generate_genre_name()
 
-    # Создаем новый жанр
-    genre_data = superadmin_api_manager.genres_api.create_genre(genre_name).json()
+    response = superadmin_api_manager.genres_api.create_genre(genre_name)
+    assert response.status_code == 201, f"Не удалось создать жанр: {response.text}"
+    genre_data = response.json()
+    assert "id" in genre_data, f"В ответе нет id: {genre_data}"
 
     yield genre_data
 
-    # Teardown: удаляем жанр
     superadmin_api_manager.genres_api.delete_genre(genre_data["id"])
 
+@pytest.fixture(scope="function")
+def movie_payload(created_genre) -> dict:
+    """Готовит валидный payload для создания фильма, но НЕ создаёт его."""
+    movie_data = data_generator.generate_movie_data()
+    movie_data["genreId"] = created_genre["id"]
+    return movie_data
+
+@pytest.fixture(scope="session")
+def created_movie(created_genre, superadmin_api_manager: ApiManager):
+    """
+    Создаёт фильм один раз на весь прогон и удаляет после всех тестов.
+    """
+    movie_data = data_generator.generate_movie_data()
+    movie_data["genreId"] = created_genre["id"]
+
+    response = superadmin_api_manager.movies_api.create_movie(movie_data)
+    assert response.status_code == 201, f"Не удалось создать фильм: {response.text}"
+    movie = response.json()
+    assert "id" in movie, f"В ответе нет id: {movie}"
+
+    yield movie
+
+    superadmin_api_manager.movies_api.delete_movie(movie["id"])
 

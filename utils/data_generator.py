@@ -32,7 +32,7 @@ class DataGenerator:
             "createdAt": None # Сортировка None - сервер применит значение по умолчанию
         }
 
-    def generate_movie_payload(self) -> dict:
+    def generate_movie_data(self) -> dict:
         """Рандомный валидный payload для POST /movies."""
         return {
             "name": self.fake.unique.sentence(nb_words=2).rstrip('.'),

@@ -122,7 +122,7 @@ def superadmin_api_manager(super_admin_http_session: requests.Session) -> ApiMan
     return admin_api_manager
 
 @pytest.fixture(scope="session")
-def created_genre(superadmin_api_manager: ApiManager):
+def create_genre(superadmin_api_manager: ApiManager):
     """
     Создаёт жанр один раз на весь прогон и удаляет после всех тестов.
     """
@@ -138,19 +138,19 @@ def created_genre(superadmin_api_manager: ApiManager):
     superadmin_api_manager.genres_api.delete_genre(genre_data["id"])
 
 @pytest.fixture(scope="function")
-def movie_payload(created_genre) -> dict:
+def movie_payload(create_genre) -> dict:
     """Готовит валидный payload для создания фильма, но НЕ создаёт его."""
     movie_data = data_generator.generate_movie_data()
-    movie_data["genreId"] = created_genre["id"]
+    movie_data["genreId"] = create_genre["id"]
     return movie_data
 
 @pytest.fixture(scope="session")
-def created_movie(created_genre, superadmin_api_manager: ApiManager):
+def create_movie(create_genre, superadmin_api_manager: ApiManager):
     """
     Создаёт фильм один раз на весь прогон и удаляет после всех тестов.
     """
     movie_data = data_generator.generate_movie_data()
-    movie_data["genreId"] = created_genre["id"]
+    movie_data["genreId"] = create_genre["id"]
 
     response = superadmin_api_manager.movies_api.create_movie(movie_data)
     assert response.status_code == 201, f"Не удалось создать фильм: {response.text}"
@@ -160,4 +160,25 @@ def created_movie(created_genre, superadmin_api_manager: ApiManager):
     yield movie
 
     superadmin_api_manager.movies_api.delete_movie(movie["id"])
+
+@pytest.fixture(scope="session")
+def create_eleven_movies(create_genre, superadmin_api_manager: ApiManager):
+    """
+    Создаёт фильм 11 раз на весь прогон и удаляет после всех тестов.
+    """
+    movies = []
+    for _ in range(11):
+        movie_data = data_generator.generate_movie_data()
+        movie_data["genreId"] = create_genre["id"]
+
+        response = superadmin_api_manager.movies_api.create_movie(movie_data)
+        assert response.status_code == 201, f"Не удалось создать фильм: {response.text}"
+        movie = response.json()
+        assert "id" in movie, f"В ответе нет id: {movie}"
+        movies.append(movie)
+
+    yield movies
+
+    for movie in movies:
+        superadmin_api_manager.movies_api.delete_movie(movie["id"])
 

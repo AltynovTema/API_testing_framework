@@ -55,6 +55,20 @@ class TestsMoviesPositive:
         # cleanup: удаляем созданный в тесте фильм, чтобы не копить мусор
         superadmin_api_manager.movies_api.delete_movie(body["id"])
 
+    @pytest.mark.smoke
+    def test_get_without_all_fields(self, api_manager, create_eleven_movies):
+        """
+        A-GET-POS-01
+        Проверка на отсутствие обязательных полей при получении афиш фильмов
+        """
+        params = {}
+        response = api_manager.movies_api.get_movies(params=params).json()
+        assert response["movies"], f"Сервер вернул пустой список фильмов"
+        assert response["count"] >= 1
+        assert response["page"] == 1
+        assert response["pageSize"] == 10
+        assert response["pageCount"] >= 10
+
 
 class TestsMoviesNegative:
     @pytest.mark.smoke
@@ -74,14 +88,14 @@ class TestsMoviesNegative:
 class TestsGenrePositive:
     @pytest.mark.smoke
     @pytest.mark.regression
-    def test_get_genre_by_id(self, api_manager, created_genre):
+    def test_get_genre_by_id(self, api_manager, create_genre):
         """
         V-POST-POS-0 (Checklist)
         Получение жанра по ID.
         Использует фикстуру created_genre для подготовки данных.
         """
         # 1. Берем id созданного жанра из фикстуры
-        genre_id = created_genre["id"]
+        genre_id = create_genre["id"]
 
         # 2. Выполняем GET-запрос (эндпоинт публичный, поэтому используем обычный api_manager)
         response = api_manager.genres_api.get_genre_id_by_id(
@@ -90,5 +104,5 @@ class TestsGenrePositive:
 
         # 3. Проверяем, что вернулся именно тот жанр, который мы создали
         assert response["id"] == genre_id
-        assert response["name"] == created_genre["name"]
+        assert response["name"] == create_genre["name"]
 

@@ -46,5 +46,5 @@ class DataGenerator:
 
     def generate_genre_name(self) -> dict:
         """Генерируем уникальное имя для жанра"""
-        return {"name": self.fake.unique.word()}
+        return {"name": f"{self.fake.unique.word()}_{self.fake.random_int(min=1, max=1000)}"}
 

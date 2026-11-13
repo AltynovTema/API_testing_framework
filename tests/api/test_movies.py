@@ -3,11 +3,38 @@ import pytest
 
 class TestsMoviesPositive:
     @pytest.mark.smoke
+    def test_create_movie_without_image_field(self, superadmin_api_manager, movie_payload):
+        """
+        V-POST-POS-01 (Checklist)
+        Создание фильма с валидными обязательными полями (без imageUrl)
+        """
+        movie_without_image = movie_payload.copy()
+        movie_without_image.pop("imageUrl", None)
+        response = superadmin_api_manager.movies_api.create_movie(movie_without_image)
+
+        assert response.status_code == 201, response.text
+        body = response.json()
+
+        assert "id" in body
+        assert body["name"] == movie_without_image["name"]
+        assert body["price"] == movie_without_image["price"]
+        assert body["description"] == movie_without_image["description"]
+        assert body["imageUrl"] is None
+        assert body["location"] == movie_without_image["location"]
+        assert body["published"] == movie_without_image["published"]
+        assert body["genreId"] == movie_without_image["genreId"]
+        assert "createdAt" in body
+        assert "rating" in body
+
+        # cleanup: удаляем созданный в тесте фильм, чтобы не копить мусор
+        superadmin_api_manager.movies_api.delete_movie(body["id"])
+
+    @pytest.mark.smoke
     @pytest.mark.regression
     def test_create_movie(self, superadmin_api_manager, movie_payload):
         """
-        O-GET-POS-01 (Checklist)
-        Создание фильма с валидными обязательными полями.
+        V-POST-POS-02 (Checklist)
+        Создание фильма со всеми полями (включая imageUrl).
         """
         response = superadmin_api_manager.movies_api.create_movie(movie_payload)
 
@@ -27,6 +54,20 @@ class TestsMoviesPositive:
 
         # cleanup: удаляем созданный в тесте фильм, чтобы не копить мусор
         superadmin_api_manager.movies_api.delete_movie(body["id"])
+
+
+class TestsMoviesNegative:
+    @pytest.mark.smoke
+    def test_without_name_field(self, superadmin_api_manager, movie_payload):
+        """
+        V-POST-NEG-01 (Checklist)
+        Проверка отсутствия обязательного поля name.
+        """
+        movie_without_name = movie_payload.copy()
+        movie_without_name.pop("name", None)
+        response = superadmin_api_manager.movies_api.create_movie(movie_without_name, expected_status=400)
+
+        assert response.status_code == 400, response.text
 
 
 

@@ -181,4 +181,3 @@ def create_eleven_movies(create_genre, superadmin_api_manager: ApiManager):
 
     for movie in movies:
         superadmin_api_manager.movies_api.delete_movie(movie["id"])
-

@@ -35,7 +35,7 @@ class DataGenerator:
     def generate_movie_data(self) -> dict:
         """Рандомный валидный payload для POST /movies."""
         return {
-            "name": self.fake.unique.sentence(nb_words=2).rstrip('.'),
+            "name": self.fake.unique.sentence(nb_words=4).rstrip('.'),
             "imageUrl": "https://image.spletnik.ru/resize/fit=cover,gravity=0.5x0.5,format=auto,width=508,height=758,dpr=2/https://image.spletnik.ru/image/2025/12/03/JwyM/original.webp",
             "price": self.fake.random_int(min=1, max=1000), # Согласно доке: minPrice default=1, maxPrice default=1000.
             "description": self.fake.unique.sentence(nb_words=9),

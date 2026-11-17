@@ -21,15 +21,17 @@ class DataGenerator:
 
     def generate_movie_filter_params(self) -> dict:
         """Базовые параметры фильтрации (широкая выборка)."""
+        minprice = self.fake.random_int(min=1, max=100000)
+        maxprice = self.fake.random_int(min=minprice, max=100000)
         return {
-            "pageSize": 20,  # Берем максимум, чтобы нужные фильмы точно попали в выдачу
-            "page": 1,
-            "minPrice": 1,  # Согласно доке: minPrice default=1.
-            "maxPrice": 1000,  # Согласно доке: maxPrice default=1000.
-            "locations": None, # Согласно доке можно не указывать, для включения в выдачу и SPB, и MSK
-            "published": None, # Согласно доке можно не указывать, для включения в выдачу и True, и False
-            "genreId": None, # Согласно доке можно не указывать, для включения в выдачу всех жанров
-            "createdAt": None # Сортировка None - сервер применит значение по умолчанию
+            "pageSize": self.fake.random_int(min=1, max=20),
+            "page": self.fake.random_element(elements=(1, 2)),
+            "minPrice": minprice,  # Согласно доке: minPrice default=1.
+            "maxPrice": maxprice,  # Согласно доке: maxPrice default=1000.
+            "locations": self.fake.random_element(elements=["SPB", "MSK"]), # можно SPB и MSK
+            "published": self.fake.random_element(elements=[True, False]),
+            "genreId": None, # Подставляется в фикстуре
+            "createdAt": self.fake.random_element(elements=["asc", "desc"])
         }
 
     def generate_movie_data(self) -> dict:
@@ -43,6 +45,19 @@ class DataGenerator:
             "published": self.fake.random_element(elements=[True, False]),
             "genreId": None # Подставляется в фикстуре
         }
+
+    def generate_movie_data_for_filters(self, filters) -> dict:
+        """Рандомный валидный payload для POST /movies."""
+        return {
+            "name": self.fake.unique.sentence(nb_words=4).rstrip('.'),
+            "imageUrl": "https://image.spletnik.ru/resize/fit=cover,gravity=0.5x0.5,format=auto,width=508,height=758,dpr=2/https://image.spletnik.ru/image/2025/12/03/JwyM/original.webp",
+            "price": self.fake.random_int(min=filters["minPrice"], max=filters["maxPrice"]), # Согласно доке: minPrice default=1, maxPrice default=1000.
+            "description": self.fake.unique.sentence(nb_words=9),
+            "location": filters["locations"],
+            "published": filters["published"],
+            "genreId": None # Подставляется в фикстуре
+        }
+
 
     def generate_genre_name(self) -> dict:
         """Генерируем уникальное имя для жанра"""

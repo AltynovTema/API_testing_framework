@@ -60,7 +60,8 @@ class TestsMoviesPositive:
     def test_get_without_all_fields(self, api_manager, create_eleven_movies):
         """
         A-GET-POS-01
-        Проверка структуры ответа относительно схемы FindAllMoviesResponse при получении афиш фильмов
+        Проверка дефолтных значений фильтров и структуры ответа относительно схемы FindAllMoviesResponse
+        при получении афиш фильмов
         """
         params = {}
         response = api_manager.movies_api.get_movies(params=params).json()
@@ -70,16 +71,48 @@ class TestsMoviesPositive:
         assert response["count"] >= 1
         assert response["page"] == 1
         assert response["pageSize"] == 10
-        assert response["pageCount"] >= 1
+        assert response["pageCount"] >= 2
         # Проверки, что каждый элемент movies содержит обязательные поля
         for movie in response["movies"]:
             assert isinstance(movie["id"], int) and not isinstance(movie["id"], bool)
             assert isinstance(movie["name"], str) and movie["name"].strip()
             assert isinstance(movie["price"], (int, float)) and not isinstance(movie["price"], bool)
-            assert movie["price"] >= 0
+            assert 0 <= movie["price"] <= 1000
             assert movie["description"] is None or isinstance(movie["description"], str)
             assert movie["imageUrl"] is None or isinstance(movie["imageUrl"], str)
-            assert movie["location"] in {"MSK", "SPB"}
+            assert movie["location"] in ("MSK", "SPB")
+            assert isinstance(movie["published"], bool)
+            assert isinstance(movie["genreId"], int)
+            assert isinstance(movie["genre"], dict) and "name" in movie["genre"]
+            assert isinstance(movie["createdAt"], str)
+            assert isinstance(movie["rating"], (int, float)) and not isinstance(movie["rating"], bool)
+            assert 0 <= movie["rating"] <= 5
+
+    @pytest.mark.smoke
+    @pytest.mark.flaky
+    def test_get_with_all_fields(self, api_manager, filters_for_movies_n_movies_for_filters):
+        """
+        A-GET-POS-02
+        Проверка устойчивости контракта при валидных параметрах
+        """
+        params = filters_for_movies_n_movies_for_filters.copy()
+        response = api_manager.movies_api.get_movies(params=params).json()
+        # Проверки, что тело ответа содержит поля movies, count, page, pageSize, pageCount
+        assert isinstance(response["movies"], list), "movies должен быть массивом"
+        assert response["movies"], "movies не должен быть пустым"
+        assert response["count"] >= 11
+        assert response["page"] in (1, 2)
+        assert response["pageSize"] in (range(21))
+        assert response["pageCount"] >= 2
+        # Проверки, что каждый элемент movies содержит обязательные поля
+        for movie in response["movies"]:
+            assert isinstance(movie["id"], int) and not isinstance(movie["id"], bool)
+            assert isinstance(movie["name"], str) and movie["name"].strip()
+            assert isinstance(movie["price"], (int, float)) and not isinstance(movie["price"], bool)
+            assert params["minPrice"] <= movie["price"] <= params["maxPrice"]
+            assert movie["description"] is None or isinstance(movie["description"], str)
+            assert movie["imageUrl"] is None or isinstance(movie["imageUrl"], str)
+            assert movie["location"] in ("MSK", "SPB")
             assert isinstance(movie["published"], bool)
             assert isinstance(movie["genreId"], int)
             assert isinstance(movie["genre"], dict) and "name" in movie["genre"]

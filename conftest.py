@@ -1,9 +1,9 @@
 # Конфигурация pytest-фреймворка.
 import os
-
 import pytest
 import requests
-from dotenv import load_dotenv  # <-- ДОБАВИТЬ ЭТОТ ИМПОРТ
+import random
+from dotenv import load_dotenv
 
 # Загружаем переменные из .env в окружение в самом начале
 load_dotenv()
@@ -181,3 +181,22 @@ def create_eleven_movies(create_genre, superadmin_api_manager: ApiManager):
 
     for movie in movies:
         superadmin_api_manager.movies_api.delete_movie(movie["id"])
+
+@pytest.fixture(scope="session")
+def filters_for_movies_n_movies_for_filters(create_genre, superadmin_api_manager):
+    """
+    Создаёт фильмы и возвращает сгенерированные фильтры для get /movies
+    """
+    filters = data_generator.generate_movie_filter_params()
+    filters["genreId"] = create_genre["id"]
+    for _ in range(11):
+        movie_data = data_generator.generate_movie_data_for_filters(filters)
+        movie_data["genreId"] = filters["genreId"]
+
+        response = superadmin_api_manager.movies_api.create_movie(movie_data)
+        assert response.status_code == 201, f"Не удалось создать фильм: {response.text}"
+        movie = response.json()
+        assert "id" in movie, f"В ответе нет id: {movie}"
+
+    return filters
+

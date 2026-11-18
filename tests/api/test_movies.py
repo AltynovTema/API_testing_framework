@@ -26,9 +26,6 @@ class TestsMoviesPositive:
         assert "createdAt" in body
         assert "rating" in body
 
-        # cleanup: удаляем созданный в тесте фильм, чтобы не копить мусор
-        superadmin_api_manager.movies_api.delete_movie(body["id"])
-
     @pytest.mark.smoke
     @pytest.mark.regression
     def test_create_movie(self, superadmin_api_manager, movie_payload):
@@ -51,9 +48,6 @@ class TestsMoviesPositive:
         assert body["genreId"] == movie_payload["genreId"]
         assert "createdAt" in body
         assert "rating" in body
-
-        # cleanup: удаляем созданный в тесте фильм, чтобы не копить мусор
-        superadmin_api_manager.movies_api.delete_movie(body["id"])
 
     @pytest.mark.smoke
     @pytest.mark.regression

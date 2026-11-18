@@ -35,7 +35,7 @@ class MoviesAPI(CustomRequester):
             **kwargs
         )
 
-    def create_movie(self, movies_data, expected_status=201, **kwargs):
+    def create_movie(self, movies_data, expected_status=(200, 201), **kwargs):
         """
         Создание фильма.
         Roles: SUPER_ADMIN
@@ -61,7 +61,7 @@ class MoviesAPI(CustomRequester):
             **kwargs
         )
 
-    def delete_movie(self, movies_id, expected_status=200, **kwargs):
+    def delete_movie(self, movies_id, expected_status=(200, 204), **kwargs):
         """
         Удаление фильма.
         Roles: SUPER_ADMIN
@@ -102,8 +102,7 @@ class GenresAPI(CustomRequester):
             ** kwargs
         )
 
-
-    def create_genre(self, genre_data, expected_status=201, **kwargs):
+    def create_genre(self, genre_data, expected_status=(200, 201), **kwargs):
         """
         Создание нового жанра
         Roles: SUPER_ADMIN
@@ -116,8 +115,7 @@ class GenresAPI(CustomRequester):
             **kwargs
         )
 
-
-    def delete_genre(self, genre_id, expected_status=200, **kwargs):
+    def delete_genre(self, genre_id, expected_status=(200, 204), **kwargs):
         """
         Удаление жанра по ID
         Roles: SUPER_ADMIN

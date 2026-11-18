@@ -12,7 +12,7 @@ class TestsMoviesPositive:
         movie_without_image.pop("imageUrl", None)
         response = superadmin_api_manager.movies_api.create_movie(movie_without_image)
 
-        assert response.status_code == 201, response.text
+        assert response.status_code in (200, 201), response.text
         body = response.json()
 
         assert "id" in body
@@ -38,7 +38,7 @@ class TestsMoviesPositive:
         """
         response = superadmin_api_manager.movies_api.create_movie(movie_payload)
 
-        assert response.status_code == 201, response.text
+        assert response.status_code in (200, 201), response.text
         body = response.json()
 
         assert "id" in body

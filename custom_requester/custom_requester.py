@@ -67,7 +67,7 @@ class CustomRequester:
         endpoint: str,
         data: dict | None = None,
         params: dict | None = None,
-        expected_status: int = 200,
+        expected_status: int | tuple[int, ...] | list[int] = 200,
         need_logging: bool = True,
         **kwargs
     ):
@@ -95,18 +95,23 @@ class CustomRequester:
         if need_logging:
             log_request_and_response(self.logger, response, end_time_ms)
 
-        if response.status_code != expected_status:
+        if isinstance(expected_status, (tuple, list)):
+            is_ok = response.status_code in expected_status
+            expected_repr = f"one of {list(expected_status)}"
+        else:
+            is_ok = response.status_code == expected_status
+            expected_repr = str(expected_status)
+
+        if not is_ok:
             error_msg = (
                 f"\nUnexpected status code: {response.status_code}. "
-                f"Expected status code: {expected_status}"
+                f"Expected status code: {expected_repr}"
             )
-
             try:
                 server_message = response.json().get("message", response.text)
                 error_msg += f"\nServer msg: {server_message}"
             except (json.JSONDecodeError, ValueError):
                 error_msg += f"\nResponse body: {response.text}"
-
             raise ValueError(error_msg)
 
         return response

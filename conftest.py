@@ -163,6 +163,35 @@ def movie_factory(superadmin_api_manager, create_genre):
     for movie_id in created_ids:
         superadmin_api_manager.movies_api.delete_movie(movie_id)
 
+@pytest.fixture(scope="function")
+def create_movie_with_name(create_genre, superadmin_api_manager):
+    """
+    Фабрика: создаёт фильм с произвольным name (в т.ч. не-ASCII),
+    возвращает созданный объект и удаляет фильм после теста.
+    """
+    created = []
+
+    def _factory(name: str) -> dict:
+        movie_data = data_generator.generate_movie_data()
+        movie_data["genreId"] = create_genre["id"]
+        movie_data["name"] = name
+        movie_data["published"] = True # Поскольку ручка забагована!
+
+        response = superadmin_api_manager.movies_api.create_movie(movie_data)
+        assert response.status_code == 201, f"Не удалось создать фильм: {response.text}"
+        movie = response.json()
+        assert movie["name"] == name, (
+            f"Сервер уже на этапе создания исказил name: "
+            f"{movie['name']!r} != {name!r}"
+        )
+        created.append(movie["id"])
+        return movie
+
+    yield _factory
+
+    for movie_id in created:
+        superadmin_api_manager.movies_api.delete_movie(movie_id)
+
 @pytest.fixture(scope="session")
 def create_eleven_movies(create_genre, superadmin_api_manager):
     """

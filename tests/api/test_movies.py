@@ -1,6 +1,5 @@
 import pytest
 
-
 class TestsMoviesPositive:
     @pytest.mark.smoke
     def test_create_movie_without_image_field(self, superadmin_api_manager, movie_payload):
@@ -114,6 +113,78 @@ class TestsMoviesPositive:
             assert isinstance(movie["rating"], (int, float)) and not isinstance(movie["rating"], bool)
             assert 0 <= movie["rating"] <= 5
 
+    @pytest.mark.smoke
+    @pytest.mark.regression
+    def test_get_movies_name_encoding_non_ascii(
+            self,
+            api_manager,
+            superadmin_api_manager,
+            create_movie_with_name,
+            create_genre,
+    ):
+        """
+        A-GET-POS-03 (Checklist)
+        Проверка кодировки поля movies[].name (не-ASCII):
+        кириллица и эмодзи должны возвращаться побайтово в UTF-8.
+        """
+        CYRILLIC_MOVIE_NAME = "Кириллическое название"
+        EMOJI_MOVIE_NAME = "Фильм с эмодзи 🎬🍿"
+
+        # Arrange: создаём два фильма с не-ASCII именами (+ movie_data["published"] = True - ручка забагована!)
+        cyrillic_movie = create_movie_with_name(CYRILLIC_MOVIE_NAME)
+        emoji_movie = create_movie_with_name(EMOJI_MOVIE_NAME)
+        expected = {
+            cyrillic_movie["id"]: CYRILLIC_MOVIE_NAME,
+            emoji_movie["id"]: EMOJI_MOVIE_NAME,
+        }
+
+        # Act: GET /movies с фильтром по genreId (гарантированно включает наши фильмы)
+        params = {
+            "genreId": create_genre["id"],
+            "pageSize": 20,
+            "page": 1,
+        }
+        response = api_manager.movies_api.get_movies(params=params)
+        assert response.status_code == 200, response.text
+
+        # Assert: кодировка заголовка ответа и самого тела
+        content_type = response.headers.get("Content-Type", "")
+        assert "application/json" in content_type, content_type
+        # JSON по умолчанию UTF-8, но проверим явно, если сервер указывает charset
+        if "charset=" in content_type:
+            assert "utf-8" in content_type.lower(), content_type
+
+        body = response.json()
+
+        # Assert: наши фильмы присутствуют в выдаче
+        returned_by_id = {m["id"]: m["name"] for m in body["movies"]}
+        for movie_id, expected_name in expected.items():
+            assert movie_id in returned_by_id, (
+                f"Фильм id={movie_id} не найден в ответе GET /movies "
+                f"(вернулось {len(returned_by_id)} фильмов)"
+            )
+
+            actual_name = returned_by_id[movie_id]
+
+            # 1. Побайтовое сравнение в UTF-8
+            assert actual_name.encode("utf-8") == expected_name.encode("utf-8"), (
+                f"Нарушена UTF-8 кодировка для id={movie_id}: "
+                f"expected={expected_name.encode('utf-8')!r}, "
+                f"actual={actual_name.encode('utf-8')!r}"
+            )
+
+            # 2. Покодпоинтовое сравнение (ловит нормализацию/суррогаты)
+            assert [ord(c) for c in actual_name] == [ord(c) for c in expected_name], (
+                f"Нарушены codepoints для id={movie_id}"
+            )
+
+            # 3. Точечная проверка для эмодзи (они состоят из суррогатных пар в UTF-16,
+            #    но в Python 3 — одиночные codepoints)
+            for ch in expected_name:
+                if ord(ch) > 0xFFFF:
+                    assert ch in actual_name, (
+                        f"Эмодзи U+{ord(ch):04X} потерян/искажён в id={movie_id}"
+                    )
 
 class TestsMoviesNegative:
     @pytest.mark.smoke

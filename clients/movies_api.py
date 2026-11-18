@@ -5,8 +5,10 @@ from config.base_urls import MOVIES_BASE_URL
 MOVIES = "/movies"
 GENRES = "/genres"
 
+
 class MoviesAPI(CustomRequester):
     """API класс наследник для работы с эндпойнтами фильмов"""
+
     def __init__(self, session):
         super().__init__(session=session, base_url=MOVIES_BASE_URL)
 
@@ -73,8 +75,53 @@ class MoviesAPI(CustomRequester):
             **kwargs
         )
 
+    """ --- ОТЗЫВЫ --- """
+
+    def create_review(self, movie_id, review_data, expected_status=(200, 201), **kwargs):
+        """
+        Создание отзыва к фильму.
+        Roles: USER, ADMIN, SUPER_ADMIN
+        POST /movies/{movieId}/reviews
+        """
+        return self.send_request(
+            method="POST",
+            endpoint=f"{MOVIES}/{movie_id}/reviews",
+            data=review_data,
+            expected_status=expected_status,
+            **kwargs
+        )
+
+    def get_reviews(self, movie_id, expected_status=200, **kwargs):
+        """
+        Получение всех отзывов фильма.
+        Roles: PUBLIC
+        GET /movies/{movieId}/reviews
+        """
+        return self.send_request(
+            method="GET",
+            endpoint=f"{MOVIES}/{movie_id}/reviews",
+            expected_status=expected_status,
+            **kwargs
+        )
+
+    def delete_review(self, movie_id, user_id, expected_status=(200, 204), **kwargs):
+        """
+        Удаление отзыва к фильму.
+        Roles: USER (только свои), ADMIN, SUPER_ADMIN
+        DELETE /movies/{movieId}/reviews?userId={userId}
+        """
+        return self.send_request(
+            method="DELETE",
+            endpoint=f"{MOVIES}/{movie_id}/reviews",
+            params={"userId": user_id},
+            expected_status=expected_status,
+            **kwargs
+        )
+
+
 class GenresAPI(CustomRequester):
     """API класс для работы с эндпойнтами жанров"""
+
     def __init__(self, session):
         super().__init__(session=session, base_url=MOVIES_BASE_URL)
 
@@ -85,9 +132,9 @@ class GenresAPI(CustomRequester):
         """
         return self.send_request(
             method="GET",
-            endpoint = GENRES,
-            expected_status = expected_status,
-            ** kwargs
+            endpoint=GENRES,
+            expected_status=expected_status,
+            **kwargs
         )
 
     def get_genre_id_by_id(self, genre_id, expected_status=200, **kwargs):
@@ -97,9 +144,9 @@ class GenresAPI(CustomRequester):
         """
         return self.send_request(
             method="GET",
-            endpoint = f"{GENRES}/{genre_id}",
-            expected_status = expected_status,
-            ** kwargs
+            endpoint=f"{GENRES}/{genre_id}",
+            expected_status=expected_status,
+            **kwargs
         )
 
     def create_genre(self, genre_data, expected_status=(200, 201), **kwargs):
@@ -122,7 +169,7 @@ class GenresAPI(CustomRequester):
         """
         return self.send_request(
             method="DELETE",
-            endpoint = f"{GENRES}/{genre_id}",
-            expected_status = expected_status,
-            ** kwargs
+            endpoint=f"{GENRES}/{genre_id}",
+            expected_status=expected_status,
+            **kwargs
         )

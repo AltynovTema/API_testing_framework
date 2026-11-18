@@ -152,7 +152,7 @@ def movie_factory(superadmin_api_manager, create_genre):
     def _create(payload: dict) -> dict:
         payload = payload.copy()
         payload.setdefault("genreId", create_genre["id"])
-        response = superadmin_api_manager.movies_api.movie_factory(payload)
+        response = superadmin_api_manager.movies_api.create_movie(payload)
         assert response.status_code in (200, 201), response.text
         body = response.json()
         created_ids.append(body["id"])
@@ -162,6 +162,30 @@ def movie_factory(superadmin_api_manager, create_genre):
 
     for movie_id in created_ids:
         superadmin_api_manager.movies_api.delete_movie(movie_id)
+
+@pytest.fixture(scope="function")
+def review_factory(superadmin_api_manager):
+    created_reviews = []
+
+    def _create(movie_id: int, payload: dict | None = None) -> dict:
+        review_data = {"rating": 5, "text": data_generator.fake.sentence(nb_words=6)}
+        if payload:
+            review_data.update(payload)
+
+        response = superadmin_api_manager.movies_api.create_review(movie_id, review_data)
+        assert response.status_code in (200, 201), response.text
+        body = response.json()
+        review = body[0] if isinstance(body, list) else body
+        created_reviews.append((movie_id, review["userId"]))
+        return review
+
+    yield _create
+
+    for movie_id, user_id in created_reviews:
+        try:
+            superadmin_api_manager.movies_api.delete_review(movie_id, user_id)
+        except Exception as e:
+            logger.warning(f"Не удалось удалить отзыв user={user_id} у фильма {movie_id}: {e}")
 
 @pytest.fixture(scope="function")
 def create_movie_with_name(create_genre, superadmin_api_manager):

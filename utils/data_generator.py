@@ -46,6 +46,13 @@ class DataGenerator:
             "genreId": None # Подставляется в фикстуре
         }
 
+    def generate_review_data(self) -> dict:
+        """Рандомный валидный payload для POST /movies/{movieId}/reviews."""
+        return {
+            "rating": self.fake.random_int(min=1, max=5),
+            "text": self.fake.unique.sentence(nb_words=6),
+        }
+
     def generate_movie_data_for_filters(self, filters) -> dict:
         """Рандомный валидный payload для POST /movies."""
         return {

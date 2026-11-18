@@ -186,6 +186,61 @@ class TestsMoviesPositive:
                         f"Эмодзи U+{ord(ch):04X} потерян/искажён в id={movie_id}"
                     )
 
+    @pytest.mark.smoke
+    def test_get_movie_by_id_structure(
+            self, api_manager, movie_payload, movie_factory, review_factory
+    ):
+        """
+        B-GET-POS-02 (Checklist)
+        Проверка структуры ответа относительно схемы FindOneMovieResponse:
+        GET /movies/{id существующего фильма}
+        """
+        # Arrange: фильм + гарантированно хотя бы один отзыв на него
+        movie = movie_factory(movie_payload)
+        movie_id = movie["id"]
+        review_factory(movie_id)
+
+        # Act
+        response = api_manager.movies_api.get_movie_by_id(movie_id)
+
+        # Шаг 2: статус-код 200
+        assert response.status_code == 200, response.text
+        body = response.json()
+
+        # Шаг 3: обязательные поля верхнего уровня
+        required_fields = (
+            "id", "name", "price", "description", "imageUrl",
+            "location", "published", "genreId", "genre",
+            "createdAt", "rating", "reviews",
+        )
+        for field in required_fields:
+            assert field in body, f"В ответе отсутствует обязательное поле '{field}'"
+
+        # Шаг 4: значения и вложенные структуры
+        assert body["id"] == movie_id
+        assert body["location"] in ("MSK", "SPB")
+        assert isinstance(body["rating"], (int, float)) and not isinstance(body["rating"], bool)
+        assert 0 <= body["rating"] <= 5
+        assert isinstance(body["genre"], dict) and "name" in body["genre"]
+        assert isinstance(body["reviews"], list), "reviews должен быть массивом"
+
+        # Шаг 5: отзыв точно есть и его структура соответствует схеме
+        assert body["reviews"], (
+            "Ожидался хотя бы один отзыв у фильма, "
+            "иначе шаг 5 (структура reviews[]) не проверяется"
+        )
+        for review in body["reviews"]:
+            for field in ("userId", "rating", "text", "createdAt", "user"):
+                assert field in review, f"В отзыве отсутствует поле '{field}'"
+            assert isinstance(review["rating"], (int, float)) and not isinstance(review["rating"], bool)
+            assert 0 <= review["rating"] <= 5
+            assert isinstance(review["text"], str) and review["text"].strip()
+            assert isinstance(review["createdAt"], str)
+            assert isinstance(review["user"], dict) and "fullName" in review["user"], (
+                "reviews[].user должен содержать fullName"
+            )
+
+
 class TestsMoviesNegative:
     @pytest.mark.smoke
     def test_without_name_field(self, superadmin_api_manager, movie_payload):

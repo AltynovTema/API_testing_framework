@@ -448,6 +448,54 @@ class TestsMoviesPositive:
         assert actual_review["rating"] == review["rating"]
         assert actual_review["text"] == review["text"]
 
+    @pytest.mark.smoke
+    def test_delete_existing_movie(self, superadmin_api_manager, movie_payload, movie_factory):
+        """
+        D-DELETE-POS-01 (Checklist)
+        Удаление существующего фильма:
+        DELETE /movies/{id существующего фильма}
+        """
+        # Arrange: создаём фильм, который будем удалять
+        movie = movie_factory(movie_payload)
+        movies_id = movie["id"]
+
+        # Act: DELETE /movies/{id} под ролью SUPER_ADMIN
+        response = superadmin_api_manager.movies_api.delete_movie(movies_id)
+
+        # Assert: статус-код 200
+        assert response.status_code == 200, response.text
+        body = response.json()
+
+        # Assert: обязательные поля схемы MovieResponse в теле ответа
+        required_fields = (
+            "id", "name", "price", "description", "imageUrl",
+            "location", "published", "genreId", "genre",
+            "createdAt", "rating",
+        )
+        for field in required_fields:
+            assert field in body, f"В ответе отсутствует обязательное поле '{field}'"
+
+        # Assert: тело ответа описывает именно удалённый фильм — сверяем с исходными данными
+        assert body["id"] == movies_id
+        assert body["name"] == movie["name"]
+        assert body["price"] == movie["price"]
+        assert body["description"] == movie["description"]
+        assert body["imageUrl"] == movie["imageUrl"]
+        assert body["location"] == movie["location"]
+        assert body["published"] == movie["published"]
+        assert body["genreId"] == movie["genreId"]
+        assert body["createdAt"] == movie["createdAt"]
+        assert isinstance(body["genre"], dict) and "name" in body["genre"]
+        assert isinstance(body["rating"], (int, float)) and not isinstance(body["rating"], bool)
+
+        # Assert: фильм действительно удалён — GET /movies/{id} возвращает 404
+        fetched = superadmin_api_manager.movies_api.get_movie_by_id(movies_id, expected_status=404)
+        assert fetched.status_code == 404, (
+            f"Ожидался 404 после удаления фильма id={movies_id}, "
+            f"получен {fetched.status_code}: {fetched.text}"
+        )
+
+
 
 class TestsMoviesNegative:
     @pytest.mark.smoke

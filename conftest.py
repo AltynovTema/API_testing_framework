@@ -161,7 +161,9 @@ def movie_factory(superadmin_api_manager, create_genre):
     yield _create
 
     for movie_id in created_ids:
-        superadmin_api_manager.movies_api.delete_movie(movie_id)
+        superadmin_api_manager.movies_api.delete_movie(
+            movie_id, expected_status=(200, 204, 404)
+        )
 
 @pytest.fixture(scope="function")
 def review_factory(superadmin_api_manager):
@@ -214,7 +216,9 @@ def create_movie_with_name(create_genre, superadmin_api_manager):
     yield _factory
 
     for movie_id in created:
-        superadmin_api_manager.movies_api.delete_movie(movie_id)
+        superadmin_api_manager.movies_api.delete_movie(
+            movie_id, expected_status=(200, 204, 404)
+        )
 
 @pytest.fixture(scope="session")
 def create_eleven_movies(create_genre, superadmin_api_manager):
@@ -232,10 +236,9 @@ def create_eleven_movies(create_genre, superadmin_api_manager):
         yield movies
     finally:
         for movie in movies:
-            try:
-                superadmin_api_manager.movies_api.delete_movie(movie["id"])
-            except Exception as e:
-                logger.warning(f"Не удалось удалить фильм {movie['id']}: {e}")
+            superadmin_api_manager.movies_api.delete_movie(
+                movie["id"], expected_status=(200, 204, 404)
+            )
 
 @pytest.fixture(scope="session")
 def filters_for_movies_n_movies_for_filters(create_genre, superadmin_api_manager):
@@ -255,5 +258,7 @@ def filters_for_movies_n_movies_for_filters(create_genre, superadmin_api_manager
         yield filters
     finally:
         for movie_id in created_ids:
-            superadmin_api_manager.movies_api.delete_movie(movie_id)
+            superadmin_api_manager.movies_api.delete_movie(
+                movie_id, expected_status=(200, 204, 404)
+            )
 

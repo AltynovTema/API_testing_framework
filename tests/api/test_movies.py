@@ -380,6 +380,74 @@ class TestsMoviesPositive:
         assert actual_review["rating"] == review["rating"]
         assert actual_review["text"] == review["text"]
 
+    @pytest.mark.smoke
+    def test_editing_multiple_fields(self, superadmin_api_manager, movie_payload, movie_factory, review_factory):
+        """
+        G-PATCH-POS-02 (Checklist)
+        Редактирование нескольких полей:
+        PATCH /movies/{id существующего фильма}
+        """
+        # Arrange:
+        # а) создаём фильм и отзыв к нему (отзыв нужен, чтобы убедиться, что PATCH не ломает агрегат rating)
+        movie = movie_factory(movie_payload)
+        movies_id = movie["id"]
+        review = review_factory(movies_id)
+
+        # б) формируем патч сразу с несколькими валидными полями
+        new_name = "ИМЯ ИЗМЕНЕНО"
+        new_price = movie["price"] + 1
+        new_location = "SPB" if movie["location"] == "MSK" else "MSK"
+        patch_payload = {
+            "name": new_name,
+            "price": new_price,
+            "location": new_location,
+        }
+
+        # Act: PATCH /movies/{id} с несколькими полями
+        response = superadmin_api_manager.movies_api.update_movie(movies_id, patch_payload)
+
+        # Assert: статус-код 200
+        assert response.status_code == 200, response.text
+        body = response.json()
+
+        # Assert: обязательные поля, которые контракт PATCH реально возвращает (без reviews)
+        required_fields = (
+            "id", "name", "price", "description", "imageUrl",
+            "location", "published", "genreId", "genre",
+            "createdAt", "rating",
+        )
+        for field in required_fields:
+            assert field in body, f"В ответе отсутствует обязательное поле '{field}'"
+
+        # Assert: изменились ровно те поля, которые патчили
+        assert body["id"] == movies_id
+        assert body["name"] == new_name
+        assert body["price"] == new_price
+        assert body["location"] == new_location
+
+        # Assert: остальные поля не изменились — сверяем с исходным фильмом из фабрики
+        assert body["description"] == movie["description"]
+        assert body["imageUrl"] == movie["imageUrl"]
+        assert body["published"] == movie["published"]
+        assert body["genreId"] == movie["genreId"]
+        assert body["createdAt"] == movie["createdAt"]
+        assert isinstance(body["genre"], dict) and "name" in body["genre"]
+
+        # Assert: агрегат rating не сломан патчем — при единственном отзыве равен его рейтингу
+        assert isinstance(body["rating"], (int, float)) and not isinstance(body["rating"], bool)
+        assert body["rating"] == review["rating"]
+
+        # Assert: отзывы не входят в контракт PATCH — проверяем их через отдельный GET
+        fetched = superadmin_api_manager.movies_api.get_movie_by_id(movies_id)
+        assert fetched.status_code == 200, fetched.text
+        fetched_body = fetched.json()
+        assert isinstance(fetched_body["reviews"], list), "reviews должен быть массивом"
+        assert len(fetched_body["reviews"]) == 1, "Ожидался ровно один отзыв у фильма"
+        actual_review = fetched_body["reviews"][0]
+        assert actual_review["userId"] == review["userId"]
+        assert actual_review["rating"] == review["rating"]
+        assert actual_review["text"] == review["text"]
+
 
 class TestsMoviesNegative:
     @pytest.mark.smoke

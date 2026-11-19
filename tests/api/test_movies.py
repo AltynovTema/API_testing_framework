@@ -187,7 +187,7 @@ class TestsMoviesPositive:
                     )
 
     @pytest.mark.smoke
-    def test_get_movie_by_id_structure(
+    def test_get_movie_by_id_reviews_structure(
             self, api_manager, movie_payload, movie_factory, review_factory
     ):
         """
@@ -239,6 +239,47 @@ class TestsMoviesPositive:
             assert isinstance(review["user"], dict) and "fullName" in review["user"], (
                 "reviews[].user должен содержать fullName"
             )
+
+    @pytest.mark.smoke
+    def test_get_movie_by_id_empty_reviews(
+            self, api_manager, movie_payload, movie_factory
+    ):
+        """
+        B-GET-POS-04 (Checklist)
+        Проверка пустого массива reviews:
+        GET /movies/{id существующего фильма без отзывов}
+        """
+        # Arrange: фильм без отзывов (свежесозданный)
+        movie = movie_factory(movie_payload)
+        movie_id = movie["id"]
+
+        # Act
+        response = api_manager.movies_api.get_movie_by_id(movie_id)
+
+        # Шаг 2: статус-код 200
+        assert response.status_code == 200, response.text
+        body = response.json()
+
+        # Шаг 3: обязательные поля верхнего уровня
+        required_fields = (
+            "id", "name", "price", "description", "imageUrl",
+            "location", "published", "genreId", "genre",
+            "createdAt", "rating", "reviews",
+        )
+        for field in required_fields:
+            assert field in body, f"В ответе отсутствует обязательное поле '{field}'"
+
+        # Шаг 4: значения и вложенные структуры
+        assert body["id"] == movie_id
+        assert body["location"] in ("MSK", "SPB")
+        assert isinstance(body["rating"], (int, float)) and not isinstance(body["rating"], bool)
+        assert 0 <= body["rating"] <= 5
+        assert isinstance(body["genre"], dict) and "name" in body["genre"]
+        assert isinstance(body["reviews"], list), "reviews должен быть массивом"
+
+        # Шаг 5: отзыв это пустой массив
+        assert body["reviews"] is not None, "reviews не должен быть null"
+        assert body["reviews"] == [], "reviews должен быть пустым массивом"
 
 
 class TestsMoviesNegative:

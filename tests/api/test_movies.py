@@ -110,8 +110,8 @@ class TestsMoviesPositive:
         A-GET-POS-02
         Проверка устойчивости контракта при валидных параметрах
         """
-        # Arrange: подготовленные фильтры и гарантированно подходящие под них фильмы
-        params = filters_for_movies_n_movies_for_filters.copy()
+        # Arrange: подготавливаем фильтры и гарантированно подходящие под них фильмы
+        params = filters_for_movies_n_movies_for_filters
 
         # Act: GET /movies с валидными фильтрами
         response = api_manager.movies_api.get_movies(params=params).json()
@@ -496,7 +496,6 @@ class TestsMoviesPositive:
         )
 
 
-
 class TestsMoviesNegative:
     @pytest.mark.smoke
     def test_without_name_field(self, superadmin_api_manager, movie_payload):
@@ -513,6 +512,32 @@ class TestsMoviesNegative:
 
         # Assert: ручка отклоняет запрос
         assert response.status_code == 400, response.text
+
+    def test_filters_with_invalid_field(self, api_manager, filters_for_movies_n_movies_for_filters):
+        """
+        A-GET-NEG-01
+        Проверка невалидных типов значений параметров
+        """
+        # Arrange: подготавливаем фильм и валидные фильтры, в которых меняем одно поле на невалидное значение
+        params = filters_for_movies_n_movies_for_filters.copy()
+        params["pageSize"] = "abc"
+
+        # Act: GET /movies с не валидными фильтрами
+        # Assert: ручка отклоняет запрос внутри API-метода
+        api_manager.movies_api.get_movies(params=params, expected_status=400)
+
+    def test_filters_with_invalid_enum_field(self, api_manager, filters_for_movies_n_movies_for_filters):
+        """
+        A-GET-NEG-02
+        Проверка невалидных значений enum-полей
+        """
+        # Arrange: подготавливаем фильм и валидные фильтры, в которых меняем одно поле на невалидное значение
+        params = filters_for_movies_n_movies_for_filters.copy()
+        params["locations"] = "ABC"
+
+        # Act: GET /movies с не валидными фильтрами
+        # Assert: ручка отклоняет запрос внутри API-метода
+        api_manager.movies_api.get_movies(params=params, expected_status=400)
 
 
 class TestsGenrePositive:

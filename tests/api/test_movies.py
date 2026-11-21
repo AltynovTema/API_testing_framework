@@ -3,6 +3,36 @@ import pytest
 
 class TestsMoviesPositive:
     @pytest.mark.smoke
+    @pytest.mark.regression
+    def test_create_movie(self, superadmin_api_manager, movie_payload):
+        """
+        V-POST-POS-02 (Checklist)
+        Создание фильма со всеми полями (включая imageUrl).
+        """
+        # Act: создаём фильм с полным payload
+        response = superadmin_api_manager.movies_api.create_movie(movie_payload)
+
+        # Assert: статус-код успешного создания
+        assert response.status_code in (200, 201), response.text
+        body = response.json()
+
+        # Assert: сервер сгенерировал id и createdAt
+        assert "id" in body
+        assert "createdAt" in body
+
+        # Assert: значения полей совпадают с отправленными исходными данными
+        assert body["name"] == movie_payload["name"]
+        assert body["price"] == movie_payload["price"]
+        assert body["description"] == movie_payload["description"]
+        assert body["imageUrl"] == movie_payload["imageUrl"]
+        assert body["location"] == movie_payload["location"]
+        assert body["published"] == movie_payload["published"]
+        assert body["genreId"] == movie_payload["genreId"]
+
+        # Assert: rating — вычисляемое поле, для нового фильма без отзывов ожидаем 0
+        assert body["rating"] == 0
+
+    @pytest.mark.smoke
     def test_create_movie_without_image_field(self, superadmin_api_manager, movie_payload):
         """
         V-POST-POS-01 (Checklist)
@@ -34,112 +64,6 @@ class TestsMoviesPositive:
 
         # Assert: rating — вычисляемое поле, для нового фильма без отзывов ожидаем 0
         assert body["rating"] == 0
-
-    @pytest.mark.smoke
-    @pytest.mark.regression
-    def test_create_movie(self, superadmin_api_manager, movie_payload):
-        """
-        V-POST-POS-02 (Checklist)
-        Создание фильма со всеми полями (включая imageUrl).
-        """
-        # Act: создаём фильм с полным payload
-        response = superadmin_api_manager.movies_api.create_movie(movie_payload)
-
-        # Assert: статус-код успешного создания
-        assert response.status_code in (200, 201), response.text
-        body = response.json()
-
-        # Assert: сервер сгенерировал id и createdAt
-        assert "id" in body
-        assert "createdAt" in body
-
-        # Assert: значения полей совпадают с отправленными исходными данными
-        assert body["name"] == movie_payload["name"]
-        assert body["price"] == movie_payload["price"]
-        assert body["description"] == movie_payload["description"]
-        assert body["imageUrl"] == movie_payload["imageUrl"]
-        assert body["location"] == movie_payload["location"]
-        assert body["published"] == movie_payload["published"]
-        assert body["genreId"] == movie_payload["genreId"]
-
-        # Assert: rating — вычисляемое поле, для нового фильма без отзывов ожидаем 0
-        assert body["rating"] == 0
-
-    @pytest.mark.smoke
-    @pytest.mark.regression
-    def test_get_without_all_fields(self, api_manager, create_eleven_movies):
-        """
-        A-GET-POS-01
-        Проверка дефолтных значений фильтров и структуры ответа относительно схемы FindAllMoviesResponse
-        при получении афиш фильмов
-        """
-        # Arrange: пустые параметры — проверяем дефолты пагинации
-        params = {}
-
-        # Act: GET /movies без фильтров
-        response = api_manager.movies_api.get_movies(params=params).json()
-
-        # Assert: верхнеуровневая структура ответа и дефолты пагинации
-        assert isinstance(response["movies"], list), "movies должен быть массивом"
-        assert response["movies"], "movies не должен быть пустым"
-        assert response["count"] >= 11
-        assert response["page"] == 1
-        assert response["pageSize"] == 10
-        assert response["pageCount"] >= 2
-
-        # Assert: каждый элемент movies содержит обязательные поля корректных типов
-        for movie in response["movies"]:
-            assert isinstance(movie["id"], int) and not isinstance(movie["id"], bool)
-            assert isinstance(movie["name"], str) and movie["name"].strip()
-            assert isinstance(movie["price"], (int, float)) and not isinstance(movie["price"], bool)
-            assert 0 <= movie["price"] <= 1000
-            assert movie["description"] is None or isinstance(movie["description"], str)
-            assert movie["imageUrl"] is None or isinstance(movie["imageUrl"], str)
-            assert movie["location"] in ("MSK", "SPB")
-            assert isinstance(movie["published"], bool)
-            assert isinstance(movie["genreId"], int)
-            assert isinstance(movie["genre"], dict) and "name" in movie["genre"]
-            assert isinstance(movie["createdAt"], str)
-            assert isinstance(movie["rating"], (int, float)) and not isinstance(movie["rating"], bool)
-            assert 0 <= movie["rating"] <= 5
-
-    @pytest.mark.smoke
-    @pytest.mark.flaky
-    def test_get_with_all_fields(self, api_manager, filters_for_movies_n_movies_for_filters):
-        """
-        A-GET-POS-02
-        Проверка устойчивости контракта при валидных параметрах
-        """
-        # Arrange: подготавливаем фильтры и гарантированно подходящие под них фильмы
-        params = filters_for_movies_n_movies_for_filters
-
-        # Act: GET /movies с валидными фильтрами
-        response = api_manager.movies_api.get_movies(params=params).json()
-
-        # Assert: верхнеуровневая структура ответа и пагинация под фильтрами
-        assert isinstance(response["movies"], list), "movies должен быть массивом"
-        assert response["movies"], "movies не должен быть пустым"
-        assert response["count"] >= 11
-        assert response["page"] in (1, 2)
-        assert response["pageSize"] in range(21)
-        assert response["pageCount"] >= 2
-
-        # Assert: каждый элемент movies содержит обязательные поля корректных типов
-        # и укладывается в переданные фильтры
-        for movie in response["movies"]:
-            assert isinstance(movie["id"], int) and not isinstance(movie["id"], bool)
-            assert isinstance(movie["name"], str) and movie["name"].strip()
-            assert isinstance(movie["price"], (int, float)) and not isinstance(movie["price"], bool)
-            assert params["minPrice"] <= movie["price"] <= params["maxPrice"]
-            assert movie["description"] is None or isinstance(movie["description"], str)
-            assert movie["imageUrl"] is None or isinstance(movie["imageUrl"], str)
-            assert movie["location"] in ("MSK", "SPB")
-            assert isinstance(movie["published"], bool)
-            assert isinstance(movie["genreId"], int)
-            assert isinstance(movie["genre"], dict) and "name" in movie["genre"]
-            assert isinstance(movie["createdAt"], str)
-            assert isinstance(movie["rating"], (int, float)) and not isinstance(movie["rating"], bool)
-            assert 0 <= movie["rating"] <= 5
 
     @pytest.mark.smoke
     @pytest.mark.regression
@@ -212,9 +136,7 @@ class TestsMoviesPositive:
                     )
 
     @pytest.mark.smoke
-    def test_get_movie_by_id_reviews_structure(
-            self, api_manager, movie_payload, movie_factory, review_factory
-    ):
+    def test_get_movie_by_id_reviews_structure(self, api_manager, movie_payload, movie_factory, review_factory):
         """
         B-GET-POS-02 (Checklist)
         Проверка структуры ответа относительно схемы FindOneMovieResponse:
@@ -319,7 +241,83 @@ class TestsMoviesPositive:
         assert body["reviews"] == [], "reviews должен быть пустым массивом"
 
     @pytest.mark.smoke
-    def test_editing_one_field(self, superadmin_api_manager, movie_payload, movie_factory, review_factory):
+    @pytest.mark.regression
+    def test_filters_get_movies_without_all_fields(self, api_manager, create_eleven_movies):
+        """
+        A-GET-POS-01
+        Проверка дефолтных значений фильтров и структуры ответа относительно схемы FindAllMoviesResponse
+        при получении афиш фильмов
+        """
+        # Arrange: пустые параметры — проверяем дефолты пагинации
+        params = {}
+
+        # Act: GET /movies без фильтров
+        response = api_manager.movies_api.get_movies(params=params).json()
+
+        # Assert: верхнеуровневая структура ответа и дефолты пагинации
+        assert isinstance(response["movies"], list), "movies должен быть массивом"
+        assert response["movies"], "movies не должен быть пустым"
+        assert response["count"] >= 11
+        assert response["page"] == 1
+        assert response["pageSize"] == 10
+        assert response["pageCount"] >= 2
+
+        # Assert: каждый элемент movies содержит обязательные поля корректных типов
+        for movie in response["movies"]:
+            assert isinstance(movie["id"], int) and not isinstance(movie["id"], bool)
+            assert isinstance(movie["name"], str) and movie["name"].strip()
+            assert isinstance(movie["price"], (int, float)) and not isinstance(movie["price"], bool)
+            assert 0 <= movie["price"] <= 1000
+            assert movie["description"] is None or isinstance(movie["description"], str)
+            assert movie["imageUrl"] is None or isinstance(movie["imageUrl"], str)
+            assert movie["location"] in ("MSK", "SPB")
+            assert isinstance(movie["published"], bool)
+            assert isinstance(movie["genreId"], int)
+            assert isinstance(movie["genre"], dict) and "name" in movie["genre"]
+            assert isinstance(movie["createdAt"], str)
+            assert isinstance(movie["rating"], (int, float)) and not isinstance(movie["rating"], bool)
+            assert 0 <= movie["rating"] <= 5
+
+    @pytest.mark.smoke
+    @pytest.mark.flaky
+    def test_filters_get_movies_with_correct_fields(self, api_manager, filters_for_movies_n_movies_for_filters):
+        """
+        A-GET-POS-02
+        Проверка устойчивости контракта при валидных параметрах
+        """
+        # Arrange: подготавливаем фильтры и гарантированно подходящие под них фильмы
+        params = filters_for_movies_n_movies_for_filters
+
+        # Act: GET /movies с валидными фильтрами
+        response = api_manager.movies_api.get_movies(params=params).json()
+
+        # Assert: верхнеуровневая структура ответа и пагинация под фильтрами
+        assert isinstance(response["movies"], list), "movies должен быть массивом"
+        assert response["movies"], "movies не должен быть пустым"
+        assert response["count"] >= 11
+        assert response["page"] in (1, 2)
+        assert response["pageSize"] in range(21)
+        assert response["pageCount"] >= 2
+
+        # Assert: каждый элемент movies содержит обязательные поля корректных типов
+        # и укладывается в переданные фильтры
+        for movie in response["movies"]:
+            assert isinstance(movie["id"], int) and not isinstance(movie["id"], bool)
+            assert isinstance(movie["name"], str) and movie["name"].strip()
+            assert isinstance(movie["price"], (int, float)) and not isinstance(movie["price"], bool)
+            assert params["minPrice"] <= movie["price"] <= params["maxPrice"]
+            assert movie["description"] is None or isinstance(movie["description"], str)
+            assert movie["imageUrl"] is None or isinstance(movie["imageUrl"], str)
+            assert movie["location"] in ("MSK", "SPB")
+            assert isinstance(movie["published"], bool)
+            assert isinstance(movie["genreId"], int)
+            assert isinstance(movie["genre"], dict) and "name" in movie["genre"]
+            assert isinstance(movie["createdAt"], str)
+            assert isinstance(movie["rating"], (int, float)) and not isinstance(movie["rating"], bool)
+            assert 0 <= movie["rating"] <= 5
+
+    @pytest.mark.smoke
+    def test_movie_patch_one_field(self, superadmin_api_manager, movie_payload, movie_factory, review_factory):
         """
         G-PATCH-POS-01 (Checklist)
         Редактирование одного поля:
@@ -381,7 +379,7 @@ class TestsMoviesPositive:
         assert actual_review["text"] == review["text"]
 
     @pytest.mark.smoke
-    def test_editing_multiple_fields(self, superadmin_api_manager, movie_payload, movie_factory, review_factory):
+    def test_movie_patch_multiple_fields(self, superadmin_api_manager, movie_payload, movie_factory, review_factory):
         """
         G-PATCH-POS-02 (Checklist)
         Редактирование нескольких полей:
@@ -498,7 +496,7 @@ class TestsMoviesPositive:
 
 class TestsMoviesNegative:
     @pytest.mark.smoke
-    def test_without_name_field(self, superadmin_api_manager, movie_payload):
+    def test_create_movie_without_name_field(self, superadmin_api_manager, movie_payload):
         """
         V-POST-NEG-01 (Checklist)
         Проверка отсутствия обязательного поля name.
@@ -513,7 +511,8 @@ class TestsMoviesNegative:
         # Assert: ручка отклоняет запрос
         assert response.status_code == 400, response.text
 
-    def test_filters_with_invalid_field(self, api_manager, filters_for_movies_n_movies_for_filters):
+    @pytest.mark.smoke
+    def test_filters_movie_with_invalid_field(self, api_manager, filters_for_movies_n_movies_for_filters):
         """
         A-GET-NEG-01
         Проверка невалидных типов значений параметров
@@ -526,7 +525,8 @@ class TestsMoviesNegative:
         # Assert: ручка отклоняет запрос внутри API-метода
         api_manager.movies_api.get_movies(params=params, expected_status=400)
 
-    def test_filters_with_invalid_enum_field(self, api_manager, filters_for_movies_n_movies_for_filters):
+    @pytest.mark.smoke
+    def test_filters_movie_with_invalid_enum_field(self, api_manager, filters_for_movies_n_movies_for_filters):
         """
         A-GET-NEG-02
         Проверка невалидных значений enum-полей
@@ -538,6 +538,35 @@ class TestsMoviesNegative:
         # Act: GET /movies с не валидными фильтрами
         # Assert: ручка отклоняет запрос внутри API-метода
         api_manager.movies_api.get_movies(params=params, expected_status=400)
+
+    @pytest.mark.smoke
+    @pytest.mark.regression
+    def tests_get_movie_with_non_existent_id(self, superadmin_api_manager):
+        """
+        B-GET-NEG-01
+        Проверка несуществующего id
+        Отправить GET /movies/{id} заведомо несуществующего фильма}
+        """
+        # Arrange: удаляем фильм (который не обязательно существует) c тестовым ID
+        test_movie_id = 1
+        response = superadmin_api_manager.movies_api.delete_movie(test_movie_id, expected_status=(200, 204, 404))
+
+        # Act: GET /movies/{id} под ролью SUPER_ADMIN что бы не дёргать лишнего
+        superadmin_api_manager.movies_api.get_movie_by_id(test_movie_id, expected_status = 404)
+
+    @pytest.mark.smoke
+    @pytest.mark.regression
+    def test_get_movies_with_invalid_id(self, api_manager):
+        """
+        B-GET-NEG-02
+        Проверка невалидного типа id
+        Отправить GET /movies/abc
+        """
+        # Arrange: подготавливаем невалидные данные для ID
+        invalid_movie_id = "abc"
+
+        # Act: GET /movies/{id}
+        api_manager.movies_api.get_movie_by_id(invalid_movie_id, expected_status=(400, 404))
 
 
 class TestsGenrePositive:

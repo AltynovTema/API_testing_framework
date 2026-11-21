@@ -80,7 +80,7 @@ def authenticated_user(
     return registered_user
 
 @pytest.fixture(scope="session")
-def unauthenticated_api_manager():
+def api_manager():
     """
     Предоставляет ApiManager без авторизации (чистая сессия).
     Не зависит от зарегистрированных пользователей.

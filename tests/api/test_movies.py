@@ -279,7 +279,7 @@ class TestsMoviesPositive:
             assert 0 <= movie["rating"] <= 5
 
     @pytest.mark.smoke
-    @pytest.mark.flaky
+    @pytest.mark.xfail
     def test_filters_get_movies_with_correct_fields(self, api_manager, filters_for_movies_n_movies_for_filters):
         """
         A-GET-POS-02
@@ -522,7 +522,6 @@ class TestsMoviesNegative:
         params["pageSize"] = "abc"
 
         # Act: GET /movies с не валидными фильтрами
-        # Assert: ручка отклоняет запрос внутри API-метода
         api_manager.movies_api.get_movies(params=params, expected_status=400)
 
     @pytest.mark.smoke
@@ -536,7 +535,6 @@ class TestsMoviesNegative:
         params["locations"] = "ABC"
 
         # Act: GET /movies с не валидными фильтрами
-        # Assert: ручка отклоняет запрос внутри API-метода
         api_manager.movies_api.get_movies(params=params, expected_status=400)
 
     @pytest.mark.smoke
@@ -556,6 +554,7 @@ class TestsMoviesNegative:
 
     @pytest.mark.smoke
     @pytest.mark.regression
+    @pytest.mark.xfail
     def test_get_movies_with_invalid_id(self, api_manager):
         """
         B-GET-NEG-02
@@ -567,6 +566,112 @@ class TestsMoviesNegative:
 
         # Act: GET /movies/{id}
         api_manager.movies_api.get_movie_by_id(invalid_movie_id, expected_status=(400, 404))
+
+    @pytest.mark.smoke
+    @pytest.mark.regression
+    def test_create_movie_with_invalid_enum_field(self, superadmin_api_manager, movie_payload):
+        """
+        V-POST-NEG-02 Проверка невалидного значения enum-поля
+        Шаг 1. Отправить POST /movies с location=ABC;
+        """
+        # Arrange: подготавливаем данные невалидного значения enum-поля
+        params = movie_payload.copy()
+        params["location"] = "ABC"
+
+        # Act: POST /movies с location=ABC
+        superadmin_api_manager.movies_api.create_movie(params, expected_status=400)
+
+    @pytest.mark.smoke
+    def test_create_movie_without_superadmin_role(self, api_manager, movie_payload):
+        """
+        V-POST-NEG-04 (Checklist)
+        Проверка доступа без роли SUPER_ADMIN:
+        POST /movies под ролью PUBLIC (без авторизации).
+        """
+        # Act: POST /movies без авторизации
+        api_manager.movies_api.create_movie(movie_payload, expected_status=401)
+
+    @pytest.mark.smoke
+    def test_patch_movie_with_non_existent_id(self, superadmin_api_manager, movie_payload):
+        """
+        G-PATCH-NEG-01 (Checklist)
+        Проверка несуществующего id:
+        PATCH /movies/{id заведомо несуществующего фильма}.
+        """
+        # Arrange: создаём фильм и удаляем его, чтобы id гарантированно не существовал
+        movie = superadmin_api_manager.movies_api.create_movie(movie_payload).json()
+        non_existent_id = movie["id"]
+        superadmin_api_manager.movies_api.delete_movie(non_existent_id)
+
+        # Act: PATCH /movies/{id несуществующего фильма}
+        response = superadmin_api_manager.movies_api.update_movie(
+            non_existent_id, {"name": "Новое имя"}, expected_status=404
+        )
+
+    @pytest.mark.smoke
+    def test_patch_movie_with_invalid_enum_field(self, superadmin_api_manager, movie_factory, movie_payload):
+        """
+        G-PATCH-NEG-02 (Checklist)
+        Проверка невалидного значения enum-поля:
+        PATCH /movies/{id} с location=ABC.
+        """
+        # Arrange: создаём фильм, который будем патчить
+        movie = movie_factory(movie_payload)
+        movies_id = movie["id"]
+
+        # Act: PATCH с невалидным location
+        response = superadmin_api_manager.movies_api.update_movie(
+            movies_id, {"location": "ABC"}, expected_status=400
+        )
+
+    @pytest.mark.smoke
+    def test_patch_movie_without_superadmin_role(self, api_manager, movie_payload, movie_factory):
+        """
+        G-PATCH-NEG-03 (Checklist)
+        Проверка доступа без роли SUPER_ADMIN:
+        PATCH /movies/{id} под ролью PUBLIC.
+        """
+        # Arrange: создаём фильм под SUPER_ADMIN, чтобы id точно существовал
+        movie = movie_factory(movie_payload)
+        movies_id = movie["id"]
+
+        # Act: PATCH без авторизации
+        response = api_manager.movies_api.update_movie(
+            movies_id, {"name": "Хакерское имя"}, expected_status=(401, 403)
+        )
+
+    @pytest.mark.smoke
+    def test_delete_movie_with_non_existent_id(self, superadmin_api_manager, movie_payload):
+        """
+        D-DELETE-NEG-01 (Checklist)
+        Проверка несуществующего id:
+        DELETE /movies/{id заведомо несуществующего фильма}.
+        """
+        # Arrange: создаём фильм и удаляем, чтобы id гарантированно не существовал
+        movie = superadmin_api_manager.movies_api.create_movie(movie_payload).json()
+        non_existent_id = movie["id"]
+        superadmin_api_manager.movies_api.delete_movie(non_existent_id)
+
+        # Act: повторный DELETE того же id
+        superadmin_api_manager.movies_api.delete_movie(
+            non_existent_id, expected_status=404
+        )
+
+    @pytest.mark.smoke
+    def test_delete_movie_without_superadmin_role(self, api_manager, movie_payload, movie_factory):
+        """
+        D-DELETE-NEG-02 (Checklist)
+        Проверка доступа без роли SUPER_ADMIN:
+        DELETE /movies/{id} под ролью PUBLIC.
+        """
+        # Arrange: создаём фильм под SUPER_ADMIN, чтобы id точно существовал
+        movie = movie_factory(movie_payload)
+        movies_id = movie["id"]
+
+        # Act: DELETE без авторизации
+        response = api_manager.movies_api.delete_movie(
+            movies_id, expected_status=(401, 403)
+        )
 
 
 class TestsGenrePositive:

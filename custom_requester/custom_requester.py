@@ -56,11 +56,6 @@ class CustomRequester:
         self.session.headers.update(self.BASE_HEADERS)
         self.logger: logging.Logger = get_logger(__name__)
 
-    def _reset_headers(self):
-        """Сбрасывает заголовки сессии к базовым для изоляции между тестами."""
-        self.session.headers.clear()
-        self.session.headers.update(self.headers)
-
     def send_request(
         self,
         method: str,
@@ -125,9 +120,3 @@ class CustomRequester:
         :param headers: Словарь заголовков для добавления.
         """
         self.session.headers.update(headers)
-
-    def _reset_headers(self):
-        """Сбрасывает заголовки и Cookie сессии к базовым для изоляции между тестами."""
-        self.session.headers.clear()
-        self.session.headers.update(self.headers)
-        self.session.cookies.clear()

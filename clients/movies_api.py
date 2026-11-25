@@ -6,13 +6,13 @@ MOVIES = "/movies"
 GENRES = "/genres"
 
 
-class MoviesAPI(CustomRequester):
+class MoviesApi(CustomRequester):
     """API класс наследник для работы с эндпойнтами фильмов"""
 
     def __init__(self, session):
         super().__init__(session=session, base_url=MOVIES_BASE_URL)
 
-    def get_movies(self, params, expected_status=200, **kwargs):
+    def get_movies(self, params=None, expected_status=200, **kwargs):
         """
         Получение афиш фильмов.
         Roles: PUBLIC
@@ -37,7 +37,7 @@ class MoviesAPI(CustomRequester):
             **kwargs
         )
 
-    def create_movie(self, movies_data, expected_status=(200, 201), **kwargs):
+    def create_movie(self, movies_data, expected_status=201, **kwargs):
         """
         Создание фильма.
         Roles: SUPER_ADMIN
@@ -63,7 +63,7 @@ class MoviesAPI(CustomRequester):
             **kwargs
         )
 
-    def delete_movie(self, movies_id, expected_status=(200, 204), **kwargs):
+    def delete_movie(self, movies_id, expected_status=200, **kwargs):
         """
         Удаление фильма.
         Roles: SUPER_ADMIN
@@ -77,7 +77,7 @@ class MoviesAPI(CustomRequester):
 
     """ --- ОТЗЫВЫ --- """
 
-    def create_review(self, movie_id, review_data, expected_status=(200, 201), **kwargs):
+    def create_review(self, movie_id, review_data, expected_status=201, **kwargs):
         """
         Создание отзыва к фильму.
         Roles: USER, ADMIN, SUPER_ADMIN
@@ -119,7 +119,7 @@ class MoviesAPI(CustomRequester):
         )
 
 
-class GenresAPI(CustomRequester):
+class GenresApi(CustomRequester):
     """API класс для работы с эндпойнтами жанров"""
 
     def __init__(self, session):
@@ -149,7 +149,7 @@ class GenresAPI(CustomRequester):
             **kwargs
         )
 
-    def create_genre(self, genre_data, expected_status=(200, 201), **kwargs):
+    def create_genre(self, genre_data, expected_status=201, **kwargs):
         """
         Создание нового жанра
         Roles: SUPER_ADMIN

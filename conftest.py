@@ -2,7 +2,6 @@
 import os
 import pytest
 import requests
-import random
 from dotenv import load_dotenv
 
 # Загружаем переменные из .env в окружение в самом начале
@@ -15,13 +14,14 @@ from utils.data_generator import DataGenerator
 from utils.logger import setup_logger
 
 # Глобальная настройка логгера при загрузке conftest.py
-setup_logger("custom_requester.custom_requester")
+setup_logger("custom_requester.custom_requester")  # настраиваем логгер для всех API-клиентов
+logger = setup_logger("conftest")                   # логгер для conftest (review_factory)
 
 # Экземпляр генератора данных (общий для всех тестов)
 data_generator = DataGenerator()
 
 # Pytest Fixtures
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def http_session() -> requests.Session:
     """
     Создаёт объект requests.Session().
@@ -33,9 +33,9 @@ def http_session() -> requests.Session:
     yield session
     session.close()
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def api_manager(http_session: requests.Session) -> ApiManager:
-    """Предоставляет готовый ApiManager с инициализированной сессией."""
+    """Предоставляет готовый ApiManager с инициализированной сессией (без авторизации)."""
     return ApiManager(http_session)
 
 @pytest.fixture(scope="function")
@@ -79,17 +79,6 @@ def authenticated_user(
     api_manager.auth_api.authenticate((registered_user["email"], registered_user["password"]))
     return registered_user
 
-@pytest.fixture(scope="session")
-def api_manager():
-    """
-    Предоставляет ApiManager без авторизации (чистая сессия).
-    Не зависит от зарегистрированных пользователей.
-    """
-    session = requests.Session()
-    try:
-        yield ApiManager(session)
-    finally:
-        session.close()
 
 @pytest.fixture(scope="session")
 def super_admin_http_session() -> requests.Session:
@@ -121,16 +110,19 @@ def superadmin_api_manager(super_admin_http_session: requests.Session) -> ApiMan
 
     return admin_api_manager
 
+
 @pytest.fixture(scope="session")
 def create_genre(superadmin_api_manager: ApiManager):
     """
     Создаёт жанр один раз на весь прогон и удаляет после всех тестов.
     """
-    genre_name = data_generator.generate_genre_name()
+    # generate_genre_name уже возвращает dict {"name": "..."}
+    genre_payload = data_generator.generate_genre_name()
 
-    response = superadmin_api_manager.genres_api.create_genre(genre_name)
-    assert response.status_code == 201, f"Не удалось создать жанр: {response.text}"
-    genre_data = response.json()
+    # Передаем этот dict напрямую в create_genre
+    genre_data = superadmin_api_manager.genres_api.create_genre(genre_payload).json()
+
+    # Эта проверка полезна, так как мы хотим убедиться, что ID вернулся
     assert "id" in genre_data, f"В ответе нет id: {genre_data}"
 
     yield genre_data
@@ -152,8 +144,8 @@ def movie_factory(superadmin_api_manager, create_genre):
     def _create(payload: dict) -> dict:
         payload = payload.copy()
         payload.setdefault("genreId", create_genre["id"])
+        # send_request уже валидирует статус через expected_status — ассерт избыточен
         response = superadmin_api_manager.movies_api.create_movie(payload)
-        assert response.status_code in (200, 201), response.text
         body = response.json()
         created_ids.append(body["id"])
         return body
@@ -174,8 +166,8 @@ def review_factory(superadmin_api_manager):
         if payload:
             review_data.update(payload)
 
+        # send_request уже валидирует статус через expected_status — ассерт избыточен
         response = superadmin_api_manager.movies_api.create_review(movie_id, review_data)
-        assert response.status_code in (200, 201), response.text
         body = response.json()
         review = body[0] if isinstance(body, list) else body
         created_reviews.append((movie_id, review["userId"]))
@@ -187,7 +179,9 @@ def review_factory(superadmin_api_manager):
         try:
             superadmin_api_manager.movies_api.delete_review(movie_id, user_id)
         except Exception as e:
-            logger.warning(f"Не удалось удалить отзыв user={user_id} у фильма {movie_id}: {e}")
+            logger.warning(
+                f"Не удалось удалить отзыв user={user_id} у фильма {movie_id}: {e}"
+            )
 
 @pytest.fixture(scope="function")
 def create_movie_with_name(create_genre, superadmin_api_manager):
@@ -203,8 +197,8 @@ def create_movie_with_name(create_genre, superadmin_api_manager):
         movie_data["name"] = name
         movie_data["published"] = True # Поскольку ручка забагована!
 
+        # send_request уже валидирует статус 201 через expected_status по умолчанию
         response = superadmin_api_manager.movies_api.create_movie(movie_data)
-        assert response.status_code == 201, f"Не удалось создать фильм: {response.text}"
         movie = response.json()
         assert movie["name"] == name, (
             f"Сервер уже на этапе создания исказил name: "
@@ -231,7 +225,6 @@ def create_eleven_movies(create_genre, superadmin_api_manager):
             movie_data = data_generator.generate_movie_data()
             movie_data["genreId"] = create_genre["id"]
             response = superadmin_api_manager.movies_api.create_movie(movie_data)  # ← было movie_factory
-            assert response.status_code == 201, f"Не удалось создать фильм: {response.text}"
             movies.append(response.json())
         yield movies
     finally:
@@ -253,7 +246,6 @@ def filters_for_movies_n_movies_for_filters(create_genre, superadmin_api_manager
             movie_data = data_generator.generate_movie_data_for_filters(filters)
             movie_data["genreId"] = filters["genreId"]
             response = superadmin_api_manager.movies_api.create_movie(movie_data)
-            assert response.status_code == 201, f"Не удалось создать фильм: {response.text}"
             created_ids.append(response.json()["id"])
         yield filters
     finally:
@@ -261,4 +253,3 @@ def filters_for_movies_n_movies_for_filters(create_genre, superadmin_api_manager
             superadmin_api_manager.movies_api.delete_movie(
                 movie_id, expected_status=(200, 204, 404)
             )
-

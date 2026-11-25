@@ -2,6 +2,7 @@ from pytest import skip, raises
 from requests import exceptions
 
 class TestsAuthPositive:
+    @pytest.mark.smoke
     def test_register_user(self, api_manager, user_generator):
         """Регистрация нового пользователя"""
         response = api_manager.auth_api.register_user(user_generator, timeout=5, verify=False).json()
@@ -17,6 +18,7 @@ class TestsAuthPositive:
             skip("flaky-тест: сервер не возвращает поле 'banned' указанное в Swagger")
         assert "banned" in response
 
+    @pytest.mark.smoke
     def test_register_and_login_user(self, api_manager, user_generator):
         login_data = {
             "email": user_generator["email"],
@@ -34,6 +36,7 @@ class TestsAuthPositive:
         assert "refreshToken" in response_login
         assert "expiresIn" in response_login
 
+    @pytest.mark.smoke
     def test_server_minimal_timeout(self, api_manager, user_generator):
         """Проверка на минимальный таймаут"""
         response = api_manager.auth_api.register_user(user_generator, timeout=0.7, verify=False).json()
@@ -42,6 +45,7 @@ class TestsAuthPositive:
 
 
 class TestsAuthNegative:
+    @pytest.mark.smoke
     def test_get_user_info_forbidden_for_user(self, api_manager, authenticated_user):
         """Проверка, что обычный пользователь не имеет доступа к эндпоинту"""
         user_id = authenticated_user["id"]
@@ -52,6 +56,7 @@ class TestsAuthNegative:
 
 
 class TestsCheckFramework:
+    @pytest.mark.smoke
     def test_register_timeout(self, api_manager, user_generator):
         """Проверка на целостность цепочки передачи параметров (**kwargs) timeout=0.001, verify=False"""
         with raises(exceptions.ConnectTimeout):

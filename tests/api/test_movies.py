@@ -10,11 +10,7 @@ class TestsMoviesPositive:
         Создание фильма со всеми полями (включая imageUrl).
         """
         # Act: создаём фильм с полным payload
-        response = superadmin_api_manager.movies_api.create_movie(movie_payload)
-
-        # Assert: статус-код успешного создания
-        assert response.status_code in (200, 201), response.text
-        body = response.json()
+        body = superadmin_api_manager.movies_api.create_movie(movie_payload).json()
 
         # Assert: сервер сгенерировал id и createdAt
         assert "id" in body
@@ -43,11 +39,7 @@ class TestsMoviesPositive:
         movie_without_image.pop("imageUrl", None)
 
         # Act: создаём фильм
-        response = superadmin_api_manager.movies_api.create_movie(movie_without_image)
-
-        # Assert: статус-код успешного создания
-        assert response.status_code in (200, 201), response.text
-        body = response.json()
+        body = superadmin_api_manager.movies_api.create_movie(movie_without_image).json()
 
         # Assert: сервер сгенерировал id и createdAt
         assert "id" in body
@@ -70,7 +62,6 @@ class TestsMoviesPositive:
     def test_get_movies_name_encoding_non_ascii(
             self,
             api_manager,
-            superadmin_api_manager,
             create_movie_with_name,
             create_genre,
     ):
@@ -98,8 +89,7 @@ class TestsMoviesPositive:
         }
         response = api_manager.movies_api.get_movies(params=params)
 
-        # Assert: статус-код и заголовок Content-Type
-        assert response.status_code == 200, response.text
+        # Assert на заголовок Content-Type
         content_type = response.headers.get("Content-Type", "")
         assert "application/json" in content_type, content_type
         if "charset=" in content_type:
@@ -148,11 +138,7 @@ class TestsMoviesPositive:
         review = review_factory(movies_id)
 
         # Act
-        response = api_manager.movies_api.get_movie_by_id(movies_id)
-
-        # Assert: статус-код 200
-        assert response.status_code == 200, response.text
-        body = response.json()
+        body = api_manager.movies_api.get_movie_by_id(movies_id).json()
 
         # Assert: обязательные поля верхнего уровня
         required_fields = (
@@ -206,11 +192,7 @@ class TestsMoviesPositive:
         movies_id = movie["id"]
 
         # Act
-        response = api_manager.movies_api.get_movie_by_id(movies_id)
-
-        # Assert: статус-код 200
-        assert response.status_code == 200, response.text
-        body = response.json()
+        body = api_manager.movies_api.get_movie_by_id(movies_id).json()
 
         # Assert: обязательные поля верхнего уровня
         required_fields = (
@@ -257,17 +239,26 @@ class TestsMoviesPositive:
         # Assert: верхнеуровневая структура ответа и дефолты пагинации
         assert isinstance(response["movies"], list), "movies должен быть массивом"
         assert response["movies"], "movies не должен быть пустым"
+
+        # Благодаря фикстуре create_eleven_movies мы гарантируем, что в базе есть хотя бы 11 фильмов
         assert response["count"] >= 11
         assert response["page"] == 1
         assert response["pageSize"] == 10
         assert response["pageCount"] >= 2
+
+        # Assert: проверка уникальности ID на ТЕКУЩЕЙ странице
+        returned_ids = [movie["id"] for movie in response["movies"]]
+        assert len(returned_ids) == len(set(returned_ids)), "На странице обнаружены дубликаты ID!"
 
         # Assert: каждый элемент movies содержит обязательные поля корректных типов
         for movie in response["movies"]:
             assert isinstance(movie["id"], int) and not isinstance(movie["id"], bool)
             assert isinstance(movie["name"], str) and movie["name"].strip()
             assert isinstance(movie["price"], (int, float)) and not isinstance(movie["price"], bool)
-            assert 0 <= movie["price"] <= 1000
+
+            # Если проверять 0 <= price <= 1000, тест может упасть на чужих данных из базы.
+            assert movie["price"] >= 0
+
             assert movie["description"] is None or isinstance(movie["description"], str)
             assert movie["imageUrl"] is None or isinstance(movie["imageUrl"], str)
             assert movie["location"] in ("MSK", "SPB")
@@ -279,7 +270,10 @@ class TestsMoviesPositive:
             assert 0 <= movie["rating"] <= 5
 
     @pytest.mark.smoke
-    @pytest.mark.xfail
+    @pytest.mark.xfail(
+        reason="Сервер не возвращает 'published'=False фильмы что не соответствуют контракту",
+        strict=True
+    )
     def test_filters_get_movies_with_correct_fields(self, api_manager, filters_for_movies_n_movies_for_filters):
         """
         A-GET-POS-02
@@ -334,11 +328,7 @@ class TestsMoviesPositive:
         patch_payload = {"name": new_name}
 
         # Act: PATCH /movies/{id} только с одним полем
-        response = superadmin_api_manager.movies_api.update_movie(movies_id, patch_payload)
-
-        # Assert: статус-код 200
-        assert response.status_code == 200, response.text
-        body = response.json()
+        body = superadmin_api_manager.movies_api.update_movie(movies_id, patch_payload).json()
 
         # Assert: обязательные поля, которые контракт PATCH реально возвращает (без reviews)
         required_fields = (
@@ -368,9 +358,7 @@ class TestsMoviesPositive:
         assert body["rating"] == review["rating"]
 
         # Assert: отзывы не входят в контракт PATCH — проверяем их через отдельный GET
-        fetched = superadmin_api_manager.movies_api.get_movie_by_id(movies_id)
-        assert fetched.status_code == 200, fetched.text
-        fetched_body = fetched.json()
+        fetched_body = superadmin_api_manager.movies_api.get_movie_by_id(movies_id).json()
         assert isinstance(fetched_body["reviews"], list), "reviews должен быть массивом"
         assert len(fetched_body["reviews"]) == 1, "Ожидался ровно один отзыв у фильма"
         actual_review = fetched_body["reviews"][0]
@@ -402,11 +390,7 @@ class TestsMoviesPositive:
         }
 
         # Act: PATCH /movies/{id} с несколькими полями
-        response = superadmin_api_manager.movies_api.update_movie(movies_id, patch_payload)
-
-        # Assert: статус-код 200
-        assert response.status_code == 200, response.text
-        body = response.json()
+        body = superadmin_api_manager.movies_api.update_movie(movies_id, patch_payload).json()
 
         # Assert: обязательные поля, которые контракт PATCH реально возвращает (без reviews)
         required_fields = (
@@ -436,9 +420,7 @@ class TestsMoviesPositive:
         assert body["rating"] == review["rating"]
 
         # Assert: отзывы не входят в контракт PATCH — проверяем их через отдельный GET
-        fetched = superadmin_api_manager.movies_api.get_movie_by_id(movies_id)
-        assert fetched.status_code == 200, fetched.text
-        fetched_body = fetched.json()
+        fetched_body = superadmin_api_manager.movies_api.get_movie_by_id(movies_id).json()
         assert isinstance(fetched_body["reviews"], list), "reviews должен быть массивом"
         assert len(fetched_body["reviews"]) == 1, "Ожидался ровно один отзыв у фильма"
         actual_review = fetched_body["reviews"][0]
@@ -458,11 +440,7 @@ class TestsMoviesPositive:
         movies_id = movie["id"]
 
         # Act: DELETE /movies/{id} под ролью SUPER_ADMIN
-        response = superadmin_api_manager.movies_api.delete_movie(movies_id)
-
-        # Assert: статус-код 200
-        assert response.status_code == 200, response.text
-        body = response.json()
+        body = superadmin_api_manager.movies_api.delete_movie(movies_id).json()
 
         # Assert: обязательные поля схемы MovieResponse в теле ответа
         required_fields = (
@@ -488,10 +466,6 @@ class TestsMoviesPositive:
 
         # Assert: фильм действительно удалён — GET /movies/{id} возвращает 404
         fetched = superadmin_api_manager.movies_api.get_movie_by_id(movies_id, expected_status=404)
-        assert fetched.status_code == 404, (
-            f"Ожидался 404 после удаления фильма id={movies_id}, "
-            f"получен {fetched.status_code}: {fetched.text}"
-        )
 
 
 class TestsMoviesNegative:
@@ -506,10 +480,7 @@ class TestsMoviesNegative:
         movie_without_name.pop("name", None)
 
         # Act: создаём фильм без name
-        response = superadmin_api_manager.movies_api.create_movie(movie_without_name, expected_status=400)
-
-        # Assert: ручка отклоняет запрос
-        assert response.status_code == 400, response.text
+        superadmin_api_manager.movies_api.create_movie(movie_without_name, expected_status=400)
 
     @pytest.mark.smoke
     def test_filters_movie_with_invalid_field(self, api_manager, filters_for_movies_n_movies_for_filters):
@@ -539,22 +510,26 @@ class TestsMoviesNegative:
 
     @pytest.mark.smoke
     @pytest.mark.regression
-    def tests_get_movie_with_non_existent_id(self, superadmin_api_manager):
+    def tests_get_movie_with_non_existent_id(self, movie_factory, movie_payload, superadmin_api_manager):
         """
         B-GET-NEG-01
         Проверка несуществующего id
         Отправить GET /movies/{id} заведомо несуществующего фильма}
         """
-        # Arrange: удаляем фильм (который не обязательно существует) c тестовым ID
-        test_movie_id = 1
-        response = superadmin_api_manager.movies_api.delete_movie(test_movie_id, expected_status=(200, 204, 404))
+        # Arrange: создаём фильм, сохраняем тестовый ID и удаляем фильм
+        movie = movie_factory(movie_payload)
+        test_movie_id = movie["id"]
+        superadmin_api_manager.movies_api.delete_movie(test_movie_id)
 
         # Act: GET /movies/{id} под ролью SUPER_ADMIN что бы не дёргать лишнего
         superadmin_api_manager.movies_api.get_movie_by_id(test_movie_id, expected_status = 404)
 
     @pytest.mark.smoke
     @pytest.mark.regression
-    @pytest.mark.xfail
+    @pytest.mark.xfail(
+        reason="Сервер возвращает 500 вместо 400/404 при невалидном типе id",
+        strict=True
+    )
     def test_get_movies_with_invalid_id(self, api_manager):
         """
         B-GET-NEG-02
@@ -604,7 +579,7 @@ class TestsMoviesNegative:
         superadmin_api_manager.movies_api.delete_movie(non_existent_id)
 
         # Act: PATCH /movies/{id несуществующего фильма}
-        response = superadmin_api_manager.movies_api.update_movie(
+        superadmin_api_manager.movies_api.update_movie(
             non_existent_id, {"name": "Новое имя"}, expected_status=404
         )
 
@@ -620,7 +595,7 @@ class TestsMoviesNegative:
         movies_id = movie["id"]
 
         # Act: PATCH с невалидным location
-        response = superadmin_api_manager.movies_api.update_movie(
+        superadmin_api_manager.movies_api.update_movie(
             movies_id, {"location": "ABC"}, expected_status=400
         )
 
@@ -636,7 +611,7 @@ class TestsMoviesNegative:
         movies_id = movie["id"]
 
         # Act: PATCH без авторизации
-        response = api_manager.movies_api.update_movie(
+        api_manager.movies_api.update_movie(
             movies_id, {"name": "Хакерское имя"}, expected_status=(401, 403)
         )
 
@@ -669,7 +644,7 @@ class TestsMoviesNegative:
         movies_id = movie["id"]
 
         # Act: DELETE без авторизации
-        response = api_manager.movies_api.delete_movie(
+        api_manager.movies_api.delete_movie(
             movies_id, expected_status=(401, 403)
         )
 
@@ -687,9 +662,7 @@ class TestsGenrePositive:
         genre_id = create_genre["id"]
 
         # Act: GET /genres/{id} (эндпоинт публичный)
-        response = api_manager.genres_api.get_genre_id_by_id(
-            genre_id, timeout=5, verify=False
-        ).json()
+        response = api_manager.genres_api.get_genre_id_by_id(genre_id).json()
 
         # Assert: вернулся именно тот жанр, который мы создали
         assert response["id"] == genre_id

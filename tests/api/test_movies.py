@@ -510,7 +510,7 @@ class TestsMoviesNegative:
 
     @pytest.mark.smoke
     @pytest.mark.regression
-    def tests_get_movie_with_non_existent_id(self, movie_factory, movie_payload, superadmin_api_manager):
+    def test_get_movie_with_non_existent_id(self, movie_factory, movie_payload, superadmin_api_manager):
         """
         B-GET-NEG-01
         Проверка несуществующего id
@@ -567,14 +567,14 @@ class TestsMoviesNegative:
         api_manager.movies_api.create_movie(movie_payload, expected_status=401)
 
     @pytest.mark.smoke
-    def test_patch_movie_with_non_existent_id(self, superadmin_api_manager, movie_payload):
+    def test_patch_movie_with_non_existent_id(self, movie_factory, superadmin_api_manager, movie_payload):
         """
         G-PATCH-NEG-01 (Checklist)
         Проверка несуществующего id:
         PATCH /movies/{id заведомо несуществующего фильма}.
         """
         # Arrange: создаём фильм и удаляем его, чтобы id гарантированно не существовал
-        movie = superadmin_api_manager.movies_api.create_movie(movie_payload).json()
+        movie = movie_factory(movie_payload)
         non_existent_id = movie["id"]
         superadmin_api_manager.movies_api.delete_movie(non_existent_id)
 
@@ -616,14 +616,14 @@ class TestsMoviesNegative:
         )
 
     @pytest.mark.smoke
-    def test_delete_movie_with_non_existent_id(self, superadmin_api_manager, movie_payload):
+    def test_delete_movie_with_non_existent_id(self, movie_factory, superadmin_api_manager, movie_payload):
         """
         D-DELETE-NEG-01 (Checklist)
         Проверка несуществующего id:
         DELETE /movies/{id заведомо несуществующего фильма}.
         """
         # Arrange: создаём фильм и удаляем, чтобы id гарантированно не существовал
-        movie = superadmin_api_manager.movies_api.create_movie(movie_payload).json()
+        movie = movie_factory(movie_payload)
         non_existent_id = movie["id"]
         superadmin_api_manager.movies_api.delete_movie(non_existent_id)
 

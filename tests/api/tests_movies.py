@@ -7,26 +7,26 @@ class TestsMoviesPositive:
     def test_create_movie(self, superadmin_api_manager, movie_payload):
         """
         V-POST-POS-02 (Checklist)
-        Создание фильма со всеми полями (включая imageUrl).
+        Создание фильма со всеми полями (включая imageUrl)
         """
         # Act: создаём фильм с полным payload
-        body = superadmin_api_manager.movies_api.create_movie(movie_payload).json()
+        response = superadmin_api_manager.movies_api.create_movie(movie_payload).json()
 
         # Assert: сервер сгенерировал id и createdAt
-        assert "id" in body
-        assert "createdAt" in body
+        assert "id" in response
+        assert "createdAt" in response
 
         # Assert: значения полей совпадают с отправленными исходными данными
-        assert body["name"] == movie_payload["name"]
-        assert body["price"] == movie_payload["price"]
-        assert body["description"] == movie_payload["description"]
-        assert body["imageUrl"] == movie_payload["imageUrl"]
-        assert body["location"] == movie_payload["location"]
-        assert body["published"] == movie_payload["published"]
-        assert body["genreId"] == movie_payload["genreId"]
+        assert response["name"] == movie_payload["name"]
+        assert response["price"] == movie_payload["price"]
+        assert response["description"] == movie_payload["description"]
+        assert response["imageUrl"] == movie_payload["imageUrl"]
+        assert response["location"] == movie_payload["location"]
+        assert response["published"] == movie_payload["published"]
+        assert response["genreId"] == movie_payload["genreId"]
 
         # Assert: rating — вычисляемое поле, для нового фильма без отзывов ожидаем 0
-        assert body["rating"] == 0
+        assert response["rating"] == 0
 
     @pytest.mark.smoke
     def test_create_movie_without_image_field(self, superadmin_api_manager, movie_payload):
@@ -39,23 +39,23 @@ class TestsMoviesPositive:
         movie_without_image.pop("imageUrl", None)
 
         # Act: создаём фильм
-        body = superadmin_api_manager.movies_api.create_movie(movie_without_image).json()
+        response = superadmin_api_manager.movies_api.create_movie(movie_without_image).json()
 
         # Assert: сервер сгенерировал id и createdAt
-        assert "id" in body
-        assert "createdAt" in body
+        assert "id" in response
+        assert "createdAt" in response
 
         # Assert: значения полей совпадают с отправленными исходными данными
-        assert body["name"] == movie_without_image["name"]
-        assert body["price"] == movie_without_image["price"]
-        assert body["description"] == movie_without_image["description"]
-        assert body["imageUrl"] is None
-        assert body["location"] == movie_without_image["location"]
-        assert body["published"] == movie_without_image["published"]
-        assert body["genreId"] == movie_without_image["genreId"]
+        assert response["name"] == movie_without_image["name"]
+        assert response["price"] == movie_without_image["price"]
+        assert response["description"] == movie_without_image["description"]
+        assert response["imageUrl"] is None
+        assert response["location"] == movie_without_image["location"]
+        assert response["published"] == movie_without_image["published"]
+        assert response["genreId"] == movie_without_image["genreId"]
 
         # Assert: rating — вычисляемое поле, для нового фильма без отзывов ожидаем 0
-        assert body["rating"] == 0
+        assert response["rating"] == 0
 
     @pytest.mark.smoke
     @pytest.mark.regression
@@ -95,10 +95,10 @@ class TestsMoviesPositive:
         if "charset=" in content_type:
             assert "utf-8" in content_type.lower(), content_type
 
-        body = response.json()
+        response_json = response.json()
 
         # Assert: наши фильмы присутствуют в выдаче
-        returned_by_id = {m["id"]: m["name"] for m in body["movies"]}
+        returned_by_id = {m["id"]: m["name"] for m in response_json["movies"]}
         for movies_id, expected_name in expected.items():
             assert movies_id in returned_by_id, (
                 f"Фильм id={movies_id} не найден в ответе GET /movies "
@@ -138,7 +138,7 @@ class TestsMoviesPositive:
         review = review_factory(movies_id)
 
         # Act
-        body = api_manager.movies_api.get_movie_by_id(movies_id).json()
+        response = api_manager.movies_api.get_movie_by_id(movies_id).json()
 
         # Assert: обязательные поля верхнего уровня
         required_fields = (
@@ -147,29 +147,29 @@ class TestsMoviesPositive:
             "createdAt", "rating", "reviews",
         )
         for field in required_fields:
-            assert field in body, f"В ответе отсутствует обязательное поле '{field}'"
+            assert field in response, f"В ответе отсутствует обязательное поле '{field}'"
 
         # Assert: значения полей фильма совпадают с исходными данными
-        assert body["id"] == movies_id
-        assert body["name"] == movie_payload["name"]
-        assert body["price"] == movie_payload["price"]
-        assert body["description"] == movie_payload["description"]
-        assert body["imageUrl"] == movie_payload["imageUrl"]
-        assert body["location"] == movie_payload["location"]
-        assert body["published"] == movie_payload["published"]
-        assert body["genreId"] == movie_payload["genreId"]
-        assert isinstance(body["genre"], dict) and "name" in body["genre"]
+        assert response["id"] == movies_id
+        assert response["name"] == movie_payload["name"]
+        assert response["price"] == movie_payload["price"]
+        assert response["description"] == movie_payload["description"]
+        assert response["imageUrl"] == movie_payload["imageUrl"]
+        assert response["location"] == movie_payload["location"]
+        assert response["published"] == movie_payload["published"]
+        assert response["genreId"] == movie_payload["genreId"]
+        assert isinstance(response["genre"], dict) and "name" in response["genre"]
 
         # Assert: rating — вычисляемое поле; при единственном отзыве равен его рейтингу
-        assert isinstance(body["rating"], (int, float)) and not isinstance(body["rating"], bool)
-        assert body["rating"] == review["rating"]
+        assert isinstance(response["rating"], (int, float)) and not isinstance(response["rating"], bool)
+        assert response["rating"] == review["rating"]
 
         # Assert: reviews — массив ровно с одним созданным отзывом
-        assert isinstance(body["reviews"], list), "reviews должен быть массивом"
-        assert len(body["reviews"]) == 1, "Ожидался ровно один отзыв у фильма"
+        assert isinstance(response["reviews"], list), "reviews должен быть массивом"
+        assert len(response["reviews"]) == 1, "Ожидался ровно один отзыв у фильма"
 
         # Assert: структура и значения отзыва совпадают с исходными данными
-        actual_review = body["reviews"][0]
+        actual_review = response["reviews"][0]
         for field in ("userId", "rating", "text", "createdAt", "user"):
             assert field in actual_review, f"В отзыве отсутствует поле '{field}'"
         assert actual_review["userId"] == review["userId"]
@@ -192,7 +192,7 @@ class TestsMoviesPositive:
         movies_id = movie["id"]
 
         # Act
-        body = api_manager.movies_api.get_movie_by_id(movies_id).json()
+        response = api_manager.movies_api.get_movie_by_id(movies_id).json()
 
         # Assert: обязательные поля верхнего уровня
         required_fields = (
@@ -201,26 +201,26 @@ class TestsMoviesPositive:
             "createdAt", "rating", "reviews",
         )
         for field in required_fields:
-            assert field in body, f"В ответе отсутствует обязательное поле '{field}'"
+            assert field in response, f"В ответе отсутствует обязательное поле '{field}'"
 
         # Assert: значения полей фильма совпадают с исходными данными
-        assert body["id"] == movies_id
-        assert body["name"] == movie_payload["name"]
-        assert body["price"] == movie_payload["price"]
-        assert body["description"] == movie_payload["description"]
-        assert body["imageUrl"] == movie_payload["imageUrl"]
-        assert body["location"] == movie_payload["location"]
-        assert body["published"] == movie_payload["published"]
-        assert body["genreId"] == movie_payload["genreId"]
-        assert isinstance(body["genre"], dict) and "name" in body["genre"]
+        assert response["id"] == movies_id
+        assert response["name"] == movie_payload["name"]
+        assert response["price"] == movie_payload["price"]
+        assert response["description"] == movie_payload["description"]
+        assert response["imageUrl"] == movie_payload["imageUrl"]
+        assert response["location"] == movie_payload["location"]
+        assert response["published"] == movie_payload["published"]
+        assert response["genreId"] == movie_payload["genreId"]
+        assert isinstance(response["genre"], dict) and "name" in response["genre"]
 
         # Assert: rating — вычисляемое поле; без отзывов ожидаем 0
-        assert isinstance(body["rating"], (int, float)) and not isinstance(body["rating"], bool)
-        assert body["rating"] == 0
+        assert isinstance(response["rating"], (int, float)) and not isinstance(response["rating"], bool)
+        assert response["rating"] == 0
 
         # Assert: reviews — пустой массив, не null
-        assert isinstance(body["reviews"], list), "reviews должен быть массивом"
-        assert body["reviews"] == [], "reviews должен быть пустым массивом"
+        assert isinstance(response["reviews"], list), "reviews должен быть массивом"
+        assert response["reviews"] == [], "reviews должен быть пустым массивом"
 
     @pytest.mark.smoke
     @pytest.mark.regression
@@ -328,7 +328,7 @@ class TestsMoviesPositive:
         patch_payload = {"name": new_name}
 
         # Act: PATCH /movies/{id} только с одним полем
-        body = superadmin_api_manager.movies_api.update_movie(movies_id, patch_payload).json()
+        response = superadmin_api_manager.movies_api.update_movie(movies_id, patch_payload).json()
 
         # Assert: обязательные поля, которые контракт PATCH реально возвращает (без reviews)
         required_fields = (
@@ -337,25 +337,25 @@ class TestsMoviesPositive:
             "createdAt", "rating",
         )
         for field in required_fields:
-            assert field in body, f"В ответе отсутствует обязательное поле '{field}'"
+            assert field in response, f"В ответе отсутствует обязательное поле '{field}'"
 
         # Assert: изменилось ровно то поле, которое патчили
-        assert body["id"] == movies_id
-        assert body["name"] == new_name
+        assert response["id"] == movies_id
+        assert response["name"] == new_name
 
         # Assert: остальные поля не изменились — сверяем с исходным фильмом из фабрики
-        assert body["price"] == movie["price"]
-        assert body["description"] == movie["description"]
-        assert body["imageUrl"] == movie["imageUrl"]
-        assert body["location"] == movie["location"]
-        assert body["published"] == movie["published"]
-        assert body["genreId"] == movie["genreId"]
-        assert body["createdAt"] == movie["createdAt"]
-        assert isinstance(body["genre"], dict) and "name" in body["genre"]
+        assert response["price"] == movie["price"]
+        assert response["description"] == movie["description"]
+        assert response["imageUrl"] == movie["imageUrl"]
+        assert response["location"] == movie["location"]
+        assert response["published"] == movie["published"]
+        assert response["genreId"] == movie["genreId"]
+        assert response["createdAt"] == movie["createdAt"]
+        assert isinstance(response["genre"], dict) and "name" in response["genre"]
 
         # Assert: агрегат rating не сломан патчем — при единственном отзыве равен его рейтингу
-        assert isinstance(body["rating"], (int, float)) and not isinstance(body["rating"], bool)
-        assert body["rating"] == review["rating"]
+        assert isinstance(response["rating"], (int, float)) and not isinstance(response["rating"], bool)
+        assert response["rating"] == review["rating"]
 
         # Assert: отзывы не входят в контракт PATCH — проверяем их через отдельный GET
         fetched_body = superadmin_api_manager.movies_api.get_movie_by_id(movies_id).json()
@@ -390,7 +390,7 @@ class TestsMoviesPositive:
         }
 
         # Act: PATCH /movies/{id} с несколькими полями
-        body = superadmin_api_manager.movies_api.update_movie(movies_id, patch_payload).json()
+        response = superadmin_api_manager.movies_api.update_movie(movies_id, patch_payload).json()
 
         # Assert: обязательные поля, которые контракт PATCH реально возвращает (без reviews)
         required_fields = (
@@ -399,25 +399,25 @@ class TestsMoviesPositive:
             "createdAt", "rating",
         )
         for field in required_fields:
-            assert field in body, f"В ответе отсутствует обязательное поле '{field}'"
+            assert field in response, f"В ответе отсутствует обязательное поле '{field}'"
 
         # Assert: изменились ровно те поля, которые патчили
-        assert body["id"] == movies_id
-        assert body["name"] == new_name
-        assert body["price"] == new_price
-        assert body["location"] == new_location
+        assert response["id"] == movies_id
+        assert response["name"] == new_name
+        assert response["price"] == new_price
+        assert response["location"] == new_location
 
         # Assert: остальные поля не изменились — сверяем с исходным фильмом из фабрики
-        assert body["description"] == movie["description"]
-        assert body["imageUrl"] == movie["imageUrl"]
-        assert body["published"] == movie["published"]
-        assert body["genreId"] == movie["genreId"]
-        assert body["createdAt"] == movie["createdAt"]
-        assert isinstance(body["genre"], dict) and "name" in body["genre"]
+        assert response["description"] == movie["description"]
+        assert response["imageUrl"] == movie["imageUrl"]
+        assert response["published"] == movie["published"]
+        assert response["genreId"] == movie["genreId"]
+        assert response["createdAt"] == movie["createdAt"]
+        assert isinstance(response["genre"], dict) and "name" in response["genre"]
 
         # Assert: агрегат rating не сломан патчем — при единственном отзыве равен его рейтингу
-        assert isinstance(body["rating"], (int, float)) and not isinstance(body["rating"], bool)
-        assert body["rating"] == review["rating"]
+        assert isinstance(response["rating"], (int, float)) and not isinstance(response["rating"], bool)
+        assert response["rating"] == review["rating"]
 
         # Assert: отзывы не входят в контракт PATCH — проверяем их через отдельный GET
         fetched_body = superadmin_api_manager.movies_api.get_movie_by_id(movies_id).json()
@@ -440,7 +440,7 @@ class TestsMoviesPositive:
         movies_id = movie["id"]
 
         # Act: DELETE /movies/{id} под ролью SUPER_ADMIN
-        body = superadmin_api_manager.movies_api.delete_movie(movies_id).json()
+        response = superadmin_api_manager.movies_api.delete_movie(movies_id).json()
 
         # Assert: обязательные поля схемы MovieResponse в теле ответа
         required_fields = (
@@ -449,20 +449,20 @@ class TestsMoviesPositive:
             "createdAt", "rating",
         )
         for field in required_fields:
-            assert field in body, f"В ответе отсутствует обязательное поле '{field}'"
+            assert field in response, f"В ответе отсутствует обязательное поле '{field}'"
 
         # Assert: тело ответа описывает именно удалённый фильм — сверяем с исходными данными
-        assert body["id"] == movies_id
-        assert body["name"] == movie["name"]
-        assert body["price"] == movie["price"]
-        assert body["description"] == movie["description"]
-        assert body["imageUrl"] == movie["imageUrl"]
-        assert body["location"] == movie["location"]
-        assert body["published"] == movie["published"]
-        assert body["genreId"] == movie["genreId"]
-        assert body["createdAt"] == movie["createdAt"]
-        assert isinstance(body["genre"], dict) and "name" in body["genre"]
-        assert isinstance(body["rating"], (int, float)) and not isinstance(body["rating"], bool)
+        assert response["id"] == movies_id
+        assert response["name"] == movie["name"]
+        assert response["price"] == movie["price"]
+        assert response["description"] == movie["description"]
+        assert response["imageUrl"] == movie["imageUrl"]
+        assert response["location"] == movie["location"]
+        assert response["published"] == movie["published"]
+        assert response["genreId"] == movie["genreId"]
+        assert response["createdAt"] == movie["createdAt"]
+        assert isinstance(response["genre"], dict) and "name" in response["genre"]
+        assert isinstance(response["rating"], (int, float)) and not isinstance(response["rating"], bool)
 
         # Assert: фильм действительно удалён — GET /movies/{id} возвращает 404
         fetched = superadmin_api_manager.movies_api.get_movie_by_id(movies_id, expected_status=404)

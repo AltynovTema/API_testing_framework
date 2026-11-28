@@ -6,10 +6,14 @@ from dotenv import load_dotenv
 
 # Загружаем переменные из .env в окружение в самом начале
 load_dotenv()
+USERNAME = os.getenv("SUPER_ADMIN_USERNAME")
+PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD")
 
 # Импортируем нужные модули
 from clients.api_manager import ApiManager
 from utils.data_generator import DataGenerator
+from entities.user import User
+from entities.roles import Roles
 
 from utils.logger import setup_logger
 
@@ -21,6 +25,80 @@ logger = setup_logger("conftest")                   # логгер для confte
 data_generator = DataGenerator()
 
 # Pytest Fixtures
+@pytest.fixture(scope="session")
+def user_session():
+    """Создаёт пользователей и гарантированно удаляет их даже при падении assert'ов в тесте."""
+    user_pool = []
+
+    def _create_user_session():
+        session = requests.Session()
+        user_session = ApiManager(session)
+        user_pool.append(user_session)
+        return user_session
+
+    yield _create_user_session
+
+    for user in user_pool:
+        user.close_session()
+
+@pytest.fixture(scope="session")
+def super_admin(user_session):
+    new_session = user_session()
+
+    super_admin_obj = User(
+        email = USERNAME,
+        password = PASSWORD,
+        roles = [Roles.SUPER_ADMIN.value],
+        api = new_session
+    )
+
+    # Авторизуем супер-админа по его кредам (email, password) и сохраняем токен внутри его сессии
+    super_admin_obj.api.auth_api.authenticate(super_admin_obj.creds)
+    return super_admin_obj
+
+@pytest.fixture(scope="function")
+def random_user_data() -> dict:
+    """
+    Генерирует уникальные данные пользователя для каждого теста.
+    scope="function" — данные пересоздаются для каждого тестового метода.
+    """
+    random_password = data_generator.generate_password()
+    return {
+        "email": data_generator.generate_email(),
+        "fullName": data_generator.generate_full_name(),
+        "password": random_password,
+        "passwordRepeat": random_password,
+        "roles": [Roles.USER.value],
+    }
+
+@pytest.fixture(scope="function")
+def random_user_data_with_service_fields(random_user_data):
+    updated_data = random_user_data.copy()
+    updated_data.update({
+        "verified": True,
+        "banned": False
+    })
+    return updated_data
+
+@pytest.fixture(scope="function")
+def common_user(user_session, super_admin, random_user_data_with_service_fields):
+    new_session = user_session()
+
+    common_user_obj = User(
+        email = random_user_data_with_service_fields['email'],
+        password = random_user_data_with_service_fields['password'],
+        roles = [Roles.USER.value],
+        api = new_session
+    )
+
+    # Создаем простого юзера через авторизованного супер-админа
+    response = super_admin.api.user_api.create_user(random_user_data_with_service_fields)
+    # Cохраняем id в объект нового юзера
+    common_user_obj.id = response.json()['id']
+    # Авторизуем простого юзера по его кредам (email, password) и сохраняем токен внутри его сессии
+    common_user_obj.api.auth_api.authenticate(common_user_obj.creds)
+    return common_user_obj
+
 @pytest.fixture(scope="session")
 def http_session() -> requests.Session:
     """
@@ -39,33 +117,17 @@ def api_manager(http_session: requests.Session) -> ApiManager:
     return ApiManager(http_session)
 
 @pytest.fixture(scope="function")
-def user_generator() -> dict:
-    """
-    Генерирует уникальные данные пользователя для каждого теста.
-
-    scope="function" — данные пересоздаются для каждого тестового метода.
-    """
-    password = data_generator.generate_password()
-    return {
-        "email": data_generator.generate_email(),
-        "fullName": data_generator.generate_full_name(),
-        "password": password,
-        "passwordRepeat": password,
-        "roles": ["USER"],
-    }
-
-@pytest.fixture(scope="function")
 def registered_user(
-    api_manager: ApiManager, user_generator
+    api_manager: ApiManager, random_user_data
 ) -> dict:
     """
     Регистрирует нового пользователя и добавляет server-generated поле 'id'.
 
     Цепочка фикстур: user_for_tests -> api_manager -> registered_user.
     """
-    response = api_manager.auth_api.register_user(user_generator).json()
-    user_generator["id"] = response["id"]
-    return user_generator
+    response = api_manager.auth_api.register_user(random_user_data).json()
+    random_user_data["id"] = response["id"]
+    return random_user_data
 
 @pytest.fixture(scope="function")
 def authenticated_user(
@@ -101,8 +163,8 @@ def superadmin_api_manager(super_admin_http_session: requests.Session) -> ApiMan
     admin_api_manager = ApiManager(super_admin_http_session)
 
     # Берем креды из .env
-    username = os.getenv("SUPER_ADMIN_USERNAME")
-    password = os.getenv("SUPER_ADMIN_PASSWORD")
+    username = USERNAME
+    password = PASSWORD
     assert username and password, "Не найдены креды SUPER_ADMIN в .env"
 
     # Авторизуемся

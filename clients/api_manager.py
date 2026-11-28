@@ -9,3 +9,6 @@ class ApiManager():
         self.user_api = UserApi(session)
         self.movies_api = MoviesApi(session)
         self.genres_api = GenresApi(session)
+
+    def close_session(self):
+        self.session.close()

@@ -5,12 +5,22 @@ USER = "/user"
 
 class UserApi(CustomRequester):
     def __init__(self, session):
+        self.session = session
         super().__init__(session=session, base_url=AUTH_BASE_URL)
 
-    def get_user_info(self, user_id, expected_status=200, **kwargs):
+    def get_user(self, user_id, expected_status=200, **kwargs):
         return self.send_request(
             method="GET",
             endpoint=f"{USER}/{user_id}",
+            expected_status=expected_status,
+            **kwargs
+        )
+
+    def create_user(self, user_data, expected_status=201, **kwargs):
+        return self.send_request(
+            method="POST",
+            endpoint=USER,
+            data=user_data,
             expected_status=expected_status,
             **kwargs
         )
@@ -22,7 +32,3 @@ class UserApi(CustomRequester):
             expected_status=expected_status,
             **kwargs
         )
-
-    # def delete_set_of_all_users(self, *several_users_ids, expected_status=200, **kwargs):
-    #     for user_id in several_users_ids:
-    #         self.delete_user(user_id, expected_status, **kwargs)
